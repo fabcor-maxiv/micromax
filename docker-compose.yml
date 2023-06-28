@@ -1,0 +1,67 @@
+version: '3.7'
+services:
+  mysql:
+    container_name: mysql
+    image: mysql
+    environment:
+     - MYSQL_ROOT_PASSWORD=root
+    build:
+      context: mysql
+  tango-cs:
+    container_name: tango-cs
+    image: registry.gitlab.com/tango-controls/docker/tango-cs:9.3.5
+    environment:
+     - TANGO_HOST=localhost:10000
+     - MYSQL_HOST=mysql:3306
+     - MYSQL_USER=tango
+     - MYSQL_PASSWORD=tango
+     - MYSQL_DATABASE=tango
+    depends_on:
+     - mysql
+  micromax-ds:
+    container_name: micromax-ds
+    image: micromax-ds
+    environment:
+     - TANGO_HOST=tango-cs:10000
+    build:
+      context: micromax-ds
+    depends_on:
+     - tango-cs
+  mysql-2:
+    container_name: mysql-2
+    image: registry.gitlab.com/tango-controls/docker/mysql:5
+    environment:
+     - MYSQL_ROOT_PASSWORD=root
+  g-v-csproxy-0:
+    container_name: g-v-csproxy-0
+    image: registry.gitlab.com/tango-controls/docker/tango-cs:9.3.5
+    environment:
+     - TANGO_HOST=localhost:10000
+     - MYSQL_HOST=mysql-2:3306
+     - MYSQL_USER=tango
+     - MYSQL_PASSWORD=tango
+     - MYSQL_DATABASE=tango
+    depends_on:
+     - mysql-2
+  # runs 'g-v-csproxy-0' tango device servers
+  csproxy-ds:
+    container_name: csproxy-ds
+    image: csproxy-ds
+    environment:
+     - TANGO_HOST=g-v-csproxy-0:10000
+    build:
+      context: csproxy-ds
+  mxcube:
+    container_name: mxcube
+    image: mxcube
+    environment:
+     - TANGO_HOST=tango-cs:10000
+    build:
+      context: mxcube
+  dbg:
+    container_name: dbg
+    image: dbg
+    environment:
+     - TANGO_HOST=tango-cs:10000
+    build:
+      context: dbg

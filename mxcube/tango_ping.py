@@ -1,9 +1,11 @@
 import time
-from tango import Database
-from PyTango import ConnectionFailed
+from tango import Database, DeviceProxy
+from PyTango import ConnectionFailed, DevFailed
 
 
 TANGO_CONNECT_RETRY_TIME = 0.6
+
+SARDANA_DS = "dserver/sardana/micromax"
 
 
 def _connect_to_db():
@@ -18,6 +20,19 @@ def _connect_to_db():
             time.sleep(TANGO_CONNECT_RETRY_TIME)
 
 
+def _ping_sardana_ds():
+    while True:
+        try:
+            DeviceProxy(SARDANA_DS).ping()
+            return
+        except DevFailed:
+            print(
+                f"failed to connect to {SARDANA_DS}, retrying in {TANGO_CONNECT_RETRY_TIME} seconds"
+            )
+            time.sleep(TANGO_CONNECT_RETRY_TIME)
+
+
 def wait_for_tango(*_, **__):
     _connect_to_db()
+    _ping_sardana_ds()
     return True

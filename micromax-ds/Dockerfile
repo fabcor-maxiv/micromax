@@ -2,7 +2,7 @@ FROM mambaorg/micromamba:1.4.2
 
 USER root
 RUN apt-get update
-RUN apt-get -y install supervisor nano
+RUN apt-get -y install nano
 
 RUN micromamba install --name base --channel conda-forge \
     python=3.11.3 \

@@ -2,7 +2,7 @@ FROM mambaorg/micromamba:1.4.2
 
 USER root
 RUN apt-get update
-RUN apt-get -y install iputils-ping git supervisor nano
+RUN apt-get -y install iputils-ping git nano
 
 COPY condarc /opt/conda/.condarc
 
@@ -17,13 +17,6 @@ RUN micromamba install --name base --channel conda-forge \
     # MAXIV specific packages for MXCube
     sdm=1.8.8 \
     sardana=3.4.0
-
-# install our circus 'plug-in'
-RUN mkdir /opt/circus
-COPY tango_ping.py /opt/circus/
-
-COPY circus.conf /etc/
-
 
 #
 # clone mxcube repositories
@@ -53,6 +46,12 @@ RUN sed -i '/^mxcubecore\|^mxcube_video_streamer/d' web/pyproject.toml
 RUN /opt/conda/bin/pip install -e web
 
 RUN /opt/conda/bin/pip install -e core
+
+# install our circus 'plug-in'
+RUN mkdir /opt/circus
+COPY tango_ping.py /opt/circus/
+
+COPY circus.conf /etc/
 
 
 CMD [ "/opt/conda/bin/circusd", "/etc/circus.conf" ]

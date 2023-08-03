@@ -16,7 +16,7 @@ COPY tango_ping.py /opt/circus/
 COPY circus.conf /etc/
 
 RUN mkdir /tangods
-COPY eiger.py /tangods/
+COPY eiger.py beam_shutter.py /tangods/
 
 RUN mkdir /sardana_ctrls
 COPY faux.py /sardana_ctrls/

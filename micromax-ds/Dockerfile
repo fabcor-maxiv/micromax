@@ -18,4 +18,7 @@ COPY circus.conf /etc/
 RUN mkdir /tangods
 COPY eiger.py /tangods/
 
+RUN mkdir /sardana_ctrls
+COPY faux.py /sardana_ctrls/
+
 CMD [ "/opt/conda/bin/circusd", "/etc/circus.conf" ]

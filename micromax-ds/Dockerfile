@@ -4,9 +4,12 @@ USER root
 RUN apt-get update
 RUN apt-get -y install nano
 
+COPY condarc /opt/conda/.condarc
+
 RUN micromamba install --name base --channel conda-forge \
     python=3.11.3 \
     sardana=3.4.0 \
+    tangods-isara-ns-09=1.0.0 \
     circus=0.18.0
 
 # install our circus 'plug-in'

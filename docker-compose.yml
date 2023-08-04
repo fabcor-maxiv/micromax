@@ -63,6 +63,11 @@ services:
     image: b-micromax-md3-pc
     build:
       context: b-micromax-md3-pc
+  b-micromax-isara-0:
+    container_name: b-micromax-isara-0
+    image: b-micromax-isara-0
+    build:
+      context: b-micromax-isara-0
   dbg:
     container_name: dbg
     image: dbg

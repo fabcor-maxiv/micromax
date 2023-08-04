@@ -47,11 +47,15 @@ Runs emulated 'csproxy' devices.
 
 ### `mxcube`
 
-Run the MxCube.
+Runs the MxCube.
 
 ### `b-micromax-md3-pc`
 
-Run MD3Up diffractometer exporter emulator.
+Runs MD3Up diffractometer exporter emulator.
+
+### `b-micromax-isara-0`
+
+Runs ISARA socket API emulator.
 
 ### `dbg`
 

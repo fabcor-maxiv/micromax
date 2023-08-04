@@ -15,7 +15,10 @@ VALUES ('Micromax/Door/01','Door_Micromax','Micromax','Door','01',0,'nada','nada
        ('controller/fauxmotorcontroller/faux_ctrl','faux_ctrl','controller','fauxmotorcontroller','faux_ctrl',1,'IOR:010000001700000049444c3a54616e676f2f4465766963655f353a312e3000000100000000000000ac000000010102000c0000003137322e32312e302e313000cbd000000e000000fe66a4cb6400000019000000000600000300000000000000080000000100000000545441010000001c000000010000000100010001000000010001050901010001000000090101000254544140000000010000000d00000062613032386562373033313800000000240000002f746d702f6f6d6e692d726f6f742f3030303030303032352d3136393130363734393400','ba028eb70318','Sardana/micromax',25,'Controller','5','2023-08-03 12:59:33',NULL,NULL),
        ('motor/faux_ctrl/1','mono_energy','motor','faux_ctrl','1',1,'IOR:010000001700000049444c3a54616e676f2f4465766963655f353a312e3000000100000000000000ac000000010102000c0000003137322e32312e302e313000cbd000000e000000fe66a4cb6400000019000000000700000300000000000000080000000100000000545441010000001c000000010000000100010001000000010001050901010001000000090101000254544140000000010000000d00000062613032386562373033313800000000240000002f746d702f6f6d6e692d726f6f742f3030303030303032352d3136393130363734393400','ba028eb70318','Sardana/micromax',25,'Motor','5','2023-08-03 12:59:49',NULL,NULL),
        ('B312A-E09/PSS/BS-01',NULL,'B312A-E09','PSS','BS-01',0,'nada','nada','BeamShutter/B312A-PSS',0,'BeamShutter','0',NULL,NULL,NULL),
-       ('dserver/BeamShutter/B312A-PSS',NULL,'dserver','BeamShutter','B312A-PSS',0,'nada','nada','BeamShutter/B312A-PSS',0,'DServer','0',NULL,NULL,NULL);
+       ('dserver/BeamShutter/B312A-PSS',NULL,'dserver','BeamShutter','B312A-PSS',0,'nada','nada','BeamShutter/B312A-PSS',0,'DServer','0',NULL,NULL,NULL),
+       ('b312-e/ctl/sm-01',NULL,'b312-e','ctl','sm-01',0,'nada','nada','Isara/B312',0,'Isara','0',NULL,NULL,NULL),
+       ('dserver/Isara/B312',NULL,'dserver','Isara','B312',0,'nada','nada','Isara/B312',0,'DServer','0',NULL,NULL,NULL);
+
 
 
 
@@ -49,5 +52,6 @@ VALUES ('MacroServer/micromax/1','PoolNames','','','',1,'Pool_micromax_1','2023-
        ('controller/fauxmotorcontroller/faux_ctrl','id','','','',1,'3','2023-08-03 12:59:33','2023-08-03 12:59:33',NULL),
        ('motor/faux_ctrl/1','id','','','',1,'4','2023-08-03 12:59:49','2023-08-03 12:59:49',NULL),
        ('motor/faux_ctrl/1','ctrl_id','','','',1,'3','2023-08-03 12:59:49','2023-08-03 12:59:49',NULL),
-       ('motor/faux_ctrl/1','axis','','','',1,'1','2023-08-03 12:59:49','2023-08-03 12:59:49',NULL);
+       ('motor/faux_ctrl/1','axis','','','',1,'1','2023-08-03 12:59:49','2023-08-03 12:59:49',NULL),
+       ('b312-e/ctl/sm-01','host','','','',1,'b-micromax-isara-0','2023-08-04 15:13:18','2023-08-04 15:13:18',NULL);
 

@@ -41,6 +41,11 @@ RUN git clone --branch maxiv-micromax https://gitlab.maxiv.lu.se/kits-maxiv/mxcu
 # pin to specified commit
 RUN cd conf && git checkout 966edbddb85fed47d182360f2510331683976ff1
 
+# remove web proxy from ISPyB configuration, to avoid emulating web proxy.
+# ISPyB is accessable without proxy on white network.
+COPY no_lims_proxy.patch /tmp
+RUN cd conf && git apply /tmp/no_lims_proxy.patch
+
 # remove 'mxcubecore' and 'mxcube_video_streamer' packages from dependencies
 RUN sed -i '/^mxcubecore\|^mxcube_video_streamer/d' web/pyproject.toml
 RUN /opt/conda/bin/pip install -e web

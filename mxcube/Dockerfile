@@ -14,6 +14,8 @@ RUN micromamba install --name base --channel conda-forge \
     circus=0.18.0 \
     # install as conda package, so pip does not try to compile it
     python-ldap=3.4.0 \
+    # for building front-end \
+    nodejs=18.15.0 \
     # MAXIV specific packages for MXCube
     sdm=1.8.8 \
     sardana=3.4.0
@@ -49,8 +51,12 @@ RUN cd conf && git apply /tmp/no_lims_proxy.patch
 # remove 'mxcubecore' and 'mxcube_video_streamer' packages from dependencies
 RUN sed -i '/^mxcubecore\|^mxcube_video_streamer/d' web/pyproject.toml
 RUN /opt/conda/bin/pip install -e web
-
 RUN /opt/conda/bin/pip install -e core
+
+# build front-end
+WORKDIR /app/web/ui
+RUN /bin/micromamba run -p /opt/conda npm install
+RUN /bin/micromamba run -p /opt/conda npm run build
 
 # install our circus 'plug-in'
 RUN mkdir /opt/circus
@@ -58,5 +64,5 @@ COPY tango_ping.py /opt/circus/
 
 COPY circus.conf /etc/
 
-
+WORKDIR /app
 CMD [ "/opt/conda/bin/circusd", "/etc/circus.conf" ]

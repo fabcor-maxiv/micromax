@@ -1,0 +1,14 @@
+---
+
+
+dependencies:
+  - 'python=3.9'
+  - 'nodejs=18'
+  - 'sdm=1.8.8'
+  - 'sardana=3.3.8'
+  - pip:
+      - '--editable ./mxcube3'
+      - '--editable ./mxcubecore[tango]'
+
+
+...  # EOF

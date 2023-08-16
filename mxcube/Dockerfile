@@ -2,11 +2,11 @@ FROM mambaorg/micromamba:1.5.6
 
 USER root
 RUN apt-get update
-RUN apt-get -y install \
+RUN apt-get --assume-yes --no-install-recommends install \
     # need for lucid3
     libgl1-mesa-glx \
     # for troubleshooting
-    iputils-ping git nano
+    iputils-ping git nano vim
 
 COPY activedirectory.yml /etc/sdm/
 
@@ -30,7 +30,6 @@ RUN micromamba install --name base --channel conda-forge \
 # clone mxcube repositories
 #
 
-RUN mkdir /app
 WORKDIR /app
 
 # clone 'Configuration' repsitory and pin to specific commit
@@ -74,7 +73,6 @@ RUN mv /app/web/ui/build /opt/mxcube
 COPY run.sh /app/
 
 # install our circus 'plug-in'
-RUN mkdir /opt/circus
 COPY tango_ping.py /opt/circus/
 
 COPY circus.conf /etc/

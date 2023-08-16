@@ -1,14 +1,16 @@
-version: '3.7'
 services:
   mysql:
-    container_name: mysql
     image: mysql
     environment:
      - MYSQL_ROOT_PASSWORD=root
     build:
       context: mysql
+    healthcheck:
+      test: ['CMD', 'sh', '-c', 'exec mysqladmin ping --host 127.0.0.1 --password=$${MYSQL_ROOT_PASSWORD}']
+      interval: 500ms
+      start_interval: 100ms
+      start_period: 10s
   tango-cs:
-    container_name: tango-cs
     image: registry.gitlab.com/tango-controls/docker/tango-cs:9.3.5
     ports:
      - "10000:10000"
@@ -18,10 +20,11 @@ services:
      - MYSQL_USER=tango
      - MYSQL_PASSWORD=tango
      - MYSQL_DATABASE=tango
+    command: ['/usr/bin/supervisord', '-c', '/etc/supervisord.conf']
     depends_on:
-     - mysql
+      mysql:
+        condition: service_healthy
   micromax-ds:
-    container_name: micromax-ds
     image: micromax-ds
     environment:
      - TANGO_HOST=tango-cs:10000
@@ -30,12 +33,15 @@ services:
     depends_on:
      - tango-cs
   mysql-2:
-    container_name: mysql-2
     image: registry.gitlab.com/tango-controls/docker/mysql:5
     environment:
      - MYSQL_ROOT_PASSWORD=root
+    healthcheck:
+      test: ['CMD', 'sh', '-c', 'exec mysqladmin ping --host 127.0.0.1 --password=$${MYSQL_ROOT_PASSWORD}']
+      interval: 500ms
+      start_interval: 100ms
+      start_period: 10s
   g-v-csproxy-0:
-    container_name: g-v-csproxy-0
     image: registry.gitlab.com/tango-controls/docker/tango-cs:9.3.5
     environment:
      - TANGO_HOST=localhost:10000
@@ -44,36 +50,44 @@ services:
      - MYSQL_PASSWORD=tango
      - MYSQL_DATABASE=tango
     depends_on:
-     - mysql-2
+      mysql-2:
+        condition: service_healthy
+    command: ['/usr/bin/supervisord', '-c', '/etc/supervisord.conf']
   # runs 'g-v-csproxy-0' tango device servers
   csproxy-ds:
-    container_name: csproxy-ds
     image: csproxy-ds
     environment:
      - TANGO_HOST=g-v-csproxy-0:10000
     build:
       context: csproxy-ds
   mxcube:
-    container_name: mxcube
     image: mxcube
     ports:
      - "8081:8081"
+     - '3000:3000'  # For the `npm run start` frontend variant with hot reload
     environment:
      - TANGO_HOST=tango-cs:10000
     build:
       context: mxcube
+    volumes:
+      - source: './mxcube/cfg-maxiv-mxcubecore'
+        target: '/app/conf'
+        type: bind
+      - source: './mxcube/mxcubecore'
+        target: '/app/core'
+        type: bind
+      - source: './mxcube/mxcube3'
+        target: '/app/web'
+        type: bind
   b-micromax-md3-pc:
-    container_name: b-micromax-md3-pc
     image: b-micromax-md3-pc
     build:
       context: b-micromax-md3-pc
   b-micromax-isara-0:
-    container_name: b-micromax-isara-0
     image: b-micromax-isara-0
     build:
       context: b-micromax-isara-0
   dbg:
-    container_name: dbg
     image: dbg
     environment:
      - TANGO_HOST=tango-cs:10000

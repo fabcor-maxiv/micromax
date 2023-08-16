@@ -10,6 +10,8 @@ OFF = b"off"
 STATE = b"state"
 DI = b"di"
 DO = b"do"
+POSITION = b"position"
+MESSAGE = b"message"
 
 
 def log(msg: str):
@@ -39,9 +41,25 @@ def _encode(val):
         return "1" if val else "0"
 
 
-class Isara:
+class _IsaraMixin:
+    """
+    contains code shared by ISARA and ISARA2 emulation
+    """
+
     def __init__(self):
         self._power_on = False
+
+    def _handle_state_command(self):
+        # needs model specific implementation
+        raise NotImplementedError()
+
+    def _handle_di_command(self):
+        # needs model specific implementation
+        raise NotImplementedError()
+
+    def _handle_do_command(self):
+        # needs model specific implementation
+        raise NotImplementedError()
 
     def _handle_on_command(self):
         self._power_on = True
@@ -50,6 +68,85 @@ class Isara:
     def _handle_off_command(self):
         self._power_on = False
         return b"off"
+
+    def _handle_message_command(self):
+        return b"System OK for operation"
+
+    def _handle_operate_command(self, command: bytes):
+        if command == ON:
+            return self._handle_on_command()
+        if command == OFF:
+            return self._handle_off_command()
+
+        assert False, f"unexpected command {command} on operate connection"
+
+    def _handle_monitor_command(self, command: bytes) -> bytes:
+        if command == STATE:
+            return self._handle_state_command()
+        if command == DI:
+            return self._handle_di_command()
+        if command == DO:
+            return self._handle_do_command()
+        if command == MESSAGE:
+            return self._handle_message_command()
+
+        assert False, f"unexpected command {command} on monitor connection"
+
+    async def new_operate_connection(self, reader: StreamReader, writer: StreamWriter):
+        log("new operate connection")
+        try:
+            while True:
+                cmd = await _read_command("operate", reader)
+                reply = self._handle_operate_command(cmd)
+
+                await _write_reply("operate", writer, reply)
+        except:
+            print(traceback.format_exc())
+
+    async def new_monitor_connection(self, reader: StreamReader, writer: StreamWriter):
+        log("new monitor connection")
+        try:
+            while True:
+                cmd = await _read_command("monitor", reader)
+                reply = self._handle_monitor_command(cmd)
+
+                await _write_reply("monitor", writer, reply)
+        except:
+            print(traceback.format_exc())
+
+
+class Isara(_IsaraMixin):
+    """
+    emulates ISARA robot, the first model, aka the blue robot at BioMAX
+    """
+
+    def _handle_state_command(self) -> bytes:
+        reply = f"state({_encode(self._power_on)},1,0,,,,,-1,-1,,,,0,0,,75.0,1.16,1.17,1.18,,,,)"
+        return reply.encode()
+
+    def _handle_di_command(self):
+        reply = "di(" + "0" * 99 + ")"
+        return reply.encode()
+
+    def _handle_do_command(self):
+        reply = "do(" + "0" * 99 + ")"
+        return reply.encode()
+
+    def _handle_position_command(self) -> bytes:
+        return b"position(0.1,0.2,0.3,0.4,0.5,0.6)"
+
+    def _handle_monitor_command(self, command: bytes) -> bytes:
+        # handle ISARA1 specific monitor commands
+        if command == POSITION:
+            return self._handle_position_command()
+
+        return super()._handle_monitor_command(command)
+
+
+class Isara2(_IsaraMixin):
+    """
+    emulates ISARA2 robot, aka the yellow robot at MicroMAX
+    """
 
     def _handle_state_command(self) -> bytes:
         reply = (
@@ -75,62 +172,22 @@ class Isara:
             b"0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0)"
         )
 
-    async def _handle_operate_connection(
-        self, reader: StreamReader, writer: StreamWriter
-    ):
-        while True:
-            cmd = await _read_command("operate", reader)
 
-            if cmd == ON:
-                reply = self._handle_on_command()
-            elif cmd == OFF:
-                reply = self._handle_off_command()
-            else:
-                assert False, f"unexpected command {cmd} on operate connection"
+def _listen(model: str, operate_port: int, monitor_port: int):
+    def init_model():
+        classes = {"ISARA": Isara, "ISARA2": Isara2}
+        klass = classes[model]
 
-            await _write_reply("operate", writer, reply)
+        return klass()
 
-    async def new_operate_connection(self, reader: StreamReader, writer: StreamWriter):
-        log("new operate connection")
-        try:
-            await self._handle_operate_connection(reader, writer)
-        except:
-            print(traceback.format_exc())
-
-    async def _handle_monitor_connection(
-        self, reader: StreamReader, writer: StreamWriter
-    ):
-        while True:
-            cmd = await _read_command("monitor", reader)
-
-            if cmd == STATE:
-                reply = self._handle_state_command()
-            elif cmd == DI:
-                reply = self._handle_di_command()
-            elif cmd == DO:
-                reply = self._handle_do_command()
-            else:
-                assert False, f"unexpected command {cmd} on monitor connection"
-
-            await _write_reply("monitor", writer, reply)
-
-    async def new_monitor_connection(self, reader: StreamReader, writer: StreamWriter):
-        log("new monitor connection")
-        try:
-            await self._handle_monitor_connection(reader, writer)
-        except:
-            print(traceback.format_exc())
-
-
-def _listen(operate_port: int, monitor_port: int):
-    isara = Isara()
+    isara = init_model()
     op_srv = AsyncTCPServer(operate_port, isara.new_operate_connection)
     op_srv.start()
 
     mon_srv = AsyncTCPServer(monitor_port, isara.new_monitor_connection)
     mon_srv.start()
 
-    log(f"emulating ISARA at ports {operate_port} {monitor_port}")
+    log(f"emulating {model} at ports {operate_port} {monitor_port}")
 
 
 def _parse_args():
@@ -148,12 +205,18 @@ def _parse_args():
         default=1000,
     )
 
+    parser.add_argument(
+        "--model",
+        choices=["ISARA", "ISARA2"],
+        default="ISARA2",
+    )
+
     return parser.parse_args()
 
 
 def _main():
     args = _parse_args()
-    _listen(args.operate_port, args.monitor_port)
+    _listen(args.model, args.operate_port, args.monitor_port)
 
 
 _main()

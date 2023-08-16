@@ -10,6 +10,7 @@ DO = "do"
 ON = "on"
 OFF = "off"
 PUT = "put"
+TRAJ = "traj"
 STATE = "state"
 POSITION = "position"
 MESSAGE = "message"
@@ -168,6 +169,24 @@ class Isara2(_IsaraMixin):
             ",0,0,0,0,0,1,0,0,0,0,0,0,1,0,0,0,0,0,1,1,0,0,0,0,0,1,1,0,0,1,1,0,0,0,0,0,0,0,0,"
             "0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0)"
         )
+
+    def _handle_traj_command(self) -> str:
+        if not self._power_on:
+            return "Robot power disabled"
+
+        return "put"
+
+    def _handle_operate_command(self, command: str) -> str:
+        #
+        # handle ISARA2 specific operate commands
+        #
+
+        if command.startswith(TRAJ):
+            # we are ignoring trajs arguments for now
+            return self._handle_traj_command()
+
+        # handle generic operate commands
+        return super()._handle_operate_command(command)
 
 
 def _listen(model: str, operate_port: int, monitor_port: int):

@@ -70,6 +70,8 @@ class UnknownCommand(Exception):
 
 class MD3Up:
     def __init__(self):
+        self._synchronization_id = 0
+
         self._motors = {
             # name: (limits)
             "AlignmentX": (-5.6, 6.1),
@@ -135,10 +137,19 @@ class MD3Up:
         self._commands = {
             # double[] getMotorLimits(String)
             "getMotorLimits": ("double[]", "String", self._do_get_motor_limits),
+            # int startSetPhase(Phase)
+            "startSetPhase": ("int", "Phase", self._do_start_set_phase),
         }
+
+    def _get_synchronization_id(self):
+        self._synchronization_id += 1
+        return self._synchronization_id
 
     def _do_get_motor_limits(self, motor_name) -> tuple[float, float]:
         return self._motors[motor_name]
+
+    def _do_start_set_phase(self, _phase) -> int:
+        return self._get_synchronization_id()
 
     def read_attribute(self, attribute_name: str):
         val = self._attrs.get(attribute_name)

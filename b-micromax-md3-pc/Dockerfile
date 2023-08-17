@@ -5,7 +5,7 @@ RUN apt-get update
 RUN apt-get -y install nano
 
 RUN micromamba install --name base --channel conda-forge \
-    python=3.9.16 \
+    python=3.10.12 \
     pytango=9.4.2 \
     circus=0.18.0
 

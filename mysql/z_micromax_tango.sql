@@ -16,7 +16,10 @@ VALUES ('Micromax/Door/01','Door_Micromax','Micromax','Door','01',0,'nada','nada
        ('B312A-E09/PSS/BS-01',NULL,'B312A-E09','PSS','BS-01',0,'nada','nada','BeamShutter/B312A-PSS',0,'BeamShutter','0',NULL,NULL,NULL),
        ('dserver/BeamShutter/B312A-PSS',NULL,'dserver','BeamShutter','B312A-PSS',0,'nada','nada','BeamShutter/B312A-PSS',0,'DServer','0',NULL,NULL,NULL),
        ('b312-e/ctl/sm-01',NULL,'b312-e','ctl','sm-01',0,'nada','nada','Isara/B312',0,'Isara','0',NULL,NULL,NULL),
-       ('dserver/Isara/B312',NULL,'dserver','Isara','B312',0,'nada','nada','Isara/B312',0,'DServer','0',NULL,NULL,NULL);
+       ('dserver/Isara/B312',NULL,'dserver','Isara','B312',0,'nada','nada','Isara/B312',0,'DServer','0',NULL,NULL,NULL),
+       ('b312a/vac/plc-01',NULL,'b312a','vac','plc-01',0,'nada','nada','VacPlc01/0',0,'VacPlc01','0',NULL,NULL,NULL),
+       ('dserver/VacPlc01/0',NULL,'dserver','VacPlc01','0',0,'nada','nada','VacPlc01/0',0,'DServer','0',NULL,NULL,NULL);
+
 
 
 INSERT INTO `property_attribute_device`

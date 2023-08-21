@@ -2,7 +2,10 @@ FROM mambaorg/micromamba:1.4.2
 
 USER root
 RUN apt-get update
-RUN apt-get -y install iputils-ping git nano
+RUN apt-get -y install \
+    # need for lucid3
+    libgl1-mesa-glx \
+    iputils-ping git nano
 
 COPY condarc /opt/conda/.condarc
 

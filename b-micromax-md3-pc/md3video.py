@@ -2,30 +2,39 @@
 from sys import stdout
 import struct
 import random
+from pathlib import Path
 from tango.server import Device, attribute
+from simplejpeg import decode_jpeg
+
+# monochrome, 8-bit per pixel
+IMAGE_MODE_L = 0
+# rgb, 24-bit per pixel
+IMAGE_MODE_RGB = 6
 
 
-IMAGE_MODE = 0  # monochrome, 8-bit per pixel
+SAMPLE_JPEG = "sample.jpeg"
+IMAGE_MODE = IMAGE_MODE_RGB
 WIDTH = 1224
 HEIGHT = 1024
 HEADER_SIZE = 32
 NUM_PIXELS = WIDTH * HEIGHT
 
 
-def _build_image() -> bytearray:
+def _load_image() -> bytearray:
+    jpg_file = Path(SAMPLE_JPEG)
+    pixels = decode_jpeg(jpg_file.read_bytes())
+
     header = struct.pack(
         ">IHHqiiHHxxxx", 1447314767, 1, IMAGE_MODE, 0, WIDTH, HEIGHT, 0, HEADER_SIZE
     )
 
-    # start with an all-black image
-    pixels = b"\x00" * NUM_PIXELS
-    return bytearray(header + pixels)
+    return bytearray(header) + bytearray(pixels)
 
 
 class MD3(Device):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self._image = _build_image()
+        self._image = _load_image()
         self._frame_number = 1
 
     def _update_image(self):
@@ -33,17 +42,8 @@ class MD3(Device):
         self._image[8:16] = struct.pack(">q", self._frame_number)
         self._frame_number += 1
 
-        # pick a random color and change some random pixels to that color
-        new_color = random.randint(0, 255)
-        for _ in range(16):
-            pixel_idx = random.randint(0, NUM_PIXELS - 1)
-            self._image[HEADER_SIZE + pixel_idx] = new_color
-
     @attribute(dtype="DevEncoded", format="%d")
     def video_last_image(self):
-        print(f"MD3 OAV frame: {self._frame_number}")
-        stdout.flush()
-
         self._update_image()
 
         return "VIDEO_IMAGE", self._image

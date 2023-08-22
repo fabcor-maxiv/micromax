@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 import sys
 import traceback
+import asyncio
+from enum import Enum
 from asyncio import StreamReader, StreamWriter
 from argparse import ArgumentParser
 from atcpserv import AsyncTCPServer
@@ -43,13 +45,57 @@ def _encode(val):
         return "1" if val else "0"
 
 
+def _get_command_args(command_name: str, command: str) -> list:
+    args_str = command[len(command_name) + 1 : -1]
+    return args_str.split(",")
+
+
+class _Positions(Enum):
+    HOME = "HOME"
+    SOAK = "SOAK"
+
+
+class _RobotArm:
+    def __init__(self):
+        self._position = _Positions.HOME
+
+    def move_to(self, new_position: _Positions):
+        assert self._position is not None
+        asyncio.create_task(self._run_trajectory(new_position))
+
+    async def _run_trajectory(self, new_position: _Positions):
+        # start moving to new position
+        log(f"moving to {new_position.value}")
+        self._position = None
+
+        # emulate that it take some time to reach destination position
+        await asyncio.sleep(4)
+
+        # we have arrived at our new position
+        self._position = new_position
+        log(f"reached {new_position.value}")
+
+    def is_moving(self):
+        return self._position is None
+
+    def get_position(self) -> _Positions:
+        return self._position
+
+    def get_position_name(self) -> str:
+        if self._position is None:
+            return "UNDEFINED"
+
+        return self._position.value
+
+
 class _IsaraMixin:
     """
     contains code shared by ISARA and ISARA2 emulation
     """
 
     def __init__(self):
-        self._power_on = False
+        self._power_on = True
+        self._robot_arm = _RobotArm()
 
     def _handle_state_command(self):
         # needs model specific implementation
@@ -148,9 +194,13 @@ class Isara2(_IsaraMixin):
     """
 
     def _handle_state_command(self) -> str:
+        power_on = _encode(self._power_on)
+        position = self._robot_arm.get_position_name()
+        path_running = _encode(self._robot_arm.is_moving())
+
         return (
-            f"state({_encode(self._power_on)},0,1,DoubleGripper,HOME,,1,1,-1,-1,-1,-1,-1,"
-            "-1,-1,-1,,0,0,75.0,0,0,0.3865678,75.0,72.0,1,0,0,"
+            f"state({power_on},1,1,DoubleGripper,{position},,1,1,-1,-1,-1,-1,-1,"
+            f"-1,-1,-1,,{path_running},0,75.0,0,0,0.3865678,75.0,72.0,1,0,0,"
             "Robot is out of goniometer zone (translation),67108864,152.9,-390.8,"
             "-17.3,-180.0,0.0,89.1,-75.6,-18.8,93.6,0.0,105.3,-165.5,,1,,1,0,0,0,0,"
             "0,0,0,0,0,0,0,0,0,changetool|3|3|0|-2.441|0.068|392.37|0.0|0.0|-0.984)"
@@ -170,11 +220,29 @@ class Isara2(_IsaraMixin):
             "0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0)"
         )
 
-    def _handle_traj_command(self) -> str:
+    def _handle_put_traj(self) -> str:
+        if self._robot_arm.get_position() != _Positions.SOAK:
+            return "Rejected - Trajectory must start at position: SOAK"
+
+        return "put"
+
+    def _handle_traj_command(self, name, *_) -> str:
         if not self._power_on:
             return "Robot power disabled"
 
-        return "put"
+        if self._robot_arm.is_moving():
+            return "Path already running"
+
+        if name == "soak":
+            self._robot_arm.move_to(_Positions.SOAK)
+            return "soak"
+
+        if name == "home":
+            self._robot_arm.move_to(_Positions.HOME)
+            return "home"
+
+        if name == "put":
+            return self._handle_put_traj()
 
     def _handle_operate_command(self, command: str) -> str:
         #
@@ -183,7 +251,8 @@ class Isara2(_IsaraMixin):
 
         if command.startswith(TRAJ):
             # we are ignoring trajs arguments for now
-            return self._handle_traj_command()
+            args = _get_command_args(TRAJ, command)
+            return self._handle_traj_command(*args)
 
         # handle generic operate commands
         return super()._handle_operate_command(command)
@@ -203,7 +272,11 @@ def _listen(model: str, operate_port: int, monitor_port: int):
     mon_srv = AsyncTCPServer(monitor_port, isara.new_monitor_connection)
     mon_srv.start()
 
-    log(f"emulating {model} at ports {operate_port} {monitor_port}")
+    log(
+        f"emulating {model} API\n"
+        f" operate port: {operate_port}\n"
+        f" monitor port: {monitor_port}"
+    )
 
 
 def _parse_args():

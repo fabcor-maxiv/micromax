@@ -14,6 +14,8 @@ OFF = "off"
 PUT = "put"
 TRAJ = "traj"
 STATE = "state"
+OPENLID = "openlid"
+CLOSELID = "closelid"
 POSITION = "position"
 MESSAGE = "message"
 
@@ -75,7 +77,7 @@ class _RobotArm:
         self._position = new_position
         log(f"reached {new_position.value}")
 
-    def is_moving(self):
+    def is_moving(self) -> bool:
         return self._position is None
 
     def get_position(self) -> _Positions:
@@ -88,6 +90,44 @@ class _RobotArm:
         return self._position.value
 
 
+class _DewarLid:
+    def __init__(self):
+        #
+        # true - lid open
+        # false - lid closed
+        # None - lid is moving to open/closed position
+        #
+        self._open = True
+
+    def is_moving(self) -> bool:
+        return self._open is None
+
+    def _move_lid(self, opened: bool):
+        async def do_move():
+            print(f"{'opening' if opened else 'closing'} lid")
+            self._open = None
+            await asyncio.sleep(5)
+            self._open = opened
+            print(f"lid is now {'opened' if opened else 'closed'}")
+
+        assert not self.is_moving()
+        asyncio.create_task(do_move())
+
+    def open(self):
+        if self._open:
+            log("open lid request: already open, doing nothing")
+            return
+
+        self._move_lid(True)
+
+    def close(self):
+        if not self._open:
+            log("close lid request: already closed, doing nothing")
+            return
+
+        self._move_lid(False)
+
+
 class _IsaraMixin:
     """
     contains code shared by ISARA and ISARA2 emulation
@@ -96,6 +136,7 @@ class _IsaraMixin:
     def __init__(self):
         self._power_on = True
         self._robot_arm = _RobotArm()
+        self._dewar_lid = _DewarLid()
 
     def _handle_state_command(self):
         # needs model specific implementation
@@ -233,6 +274,9 @@ class Isara2(_IsaraMixin):
         if self._robot_arm.is_moving():
             return "Path already running"
 
+        if self._dewar_lid.is_moving():
+            return "Disabled when lid is moving"
+
         if name == "soak":
             self._robot_arm.move_to(_Positions.SOAK)
             return "soak"
@@ -244,15 +288,34 @@ class Isara2(_IsaraMixin):
         if name == "put":
             return self._handle_put_traj()
 
+    def _handle_openlid_command(self) -> str:
+        if self._dewar_lid.is_moving():
+            raise NotImplementedError("openld command while lid is moving")
+
+        self._dewar_lid.open()
+        return "openlid"
+
+    def _handle_closelid_command(self) -> str:
+        if self._dewar_lid.is_moving():
+            raise NotImplementedError("closelid command while lid is moving")
+
+        self._dewar_lid.close()
+        return "closelid"
+
     def _handle_operate_command(self, command: str) -> str:
         #
         # handle ISARA2 specific operate commands
         #
 
         if command.startswith(TRAJ):
-            # we are ignoring trajs arguments for now
             args = _get_command_args(TRAJ, command)
             return self._handle_traj_command(*args)
+
+        if command == OPENLID:
+            return self._handle_openlid_command()
+
+        if command == CLOSELID:
+            return self._handle_closelid_command()
 
         # handle generic operate commands
         return super()._handle_operate_command(command)

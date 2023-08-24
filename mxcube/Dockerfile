@@ -61,6 +61,9 @@ WORKDIR /app/web/ui
 RUN /bin/micromamba run -p /opt/conda npm install
 RUN /bin/micromamba run -p /opt/conda npm run build
 
+# install convenience script for running mxcube from terminal
+COPY run.sh /app/
+
 # install our circus 'plug-in'
 RUN mkdir /opt/circus
 COPY tango_ping.py /opt/circus/

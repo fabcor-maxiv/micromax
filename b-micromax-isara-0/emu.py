@@ -13,11 +13,14 @@ ON = "on"
 OFF = "off"
 PUT = "put"
 TRAJ = "traj"
+ABORT = "abort"
 STATE = "state"
+RESET = "reset"
+MESSAGE = "message"
 OPENLID = "openlid"
 CLOSELID = "closelid"
 POSITION = "position"
-MESSAGE = "message"
+CLEARMEMORY = "clearmemory"
 
 
 def log(msg: str):
@@ -134,6 +137,7 @@ class _IsaraMixin:
     """
 
     def __init__(self):
+        self._message = "System OK for operation"
         self._power_on = True
         self._robot_arm = _RobotArm()
         self._dewar_lid = _DewarLid()
@@ -166,6 +170,8 @@ class _IsaraMixin:
             return self._handle_on_command()
         if command == OFF:
             return self._handle_off_command()
+        if command == ABORT:
+            return "abort"
 
         assert False, f"unexpected command {command} on operate connection"
 
@@ -242,7 +248,7 @@ class Isara2(_IsaraMixin):
         return (
             f"state({power_on},1,1,DoubleGripper,{position},,1,1,-1,-1,-1,-1,-1,"
             f"-1,-1,-1,,{path_running},0,75.0,0,0,0.3865678,75.0,72.0,1,0,0,"
-            "Robot is out of goniometer zone (translation),67108864,152.9,-390.8,"
+            f"{self._message},67108864,152.9,-390.8,"
             "-17.3,-180.0,0.0,89.1,-75.6,-18.8,93.6,0.0,105.3,-165.5,,1,,1,0,0,0,0,"
             "0,0,0,0,0,0,0,0,0,changetool|3|3|0|-2.441|0.068|392.37|0.0|0.0|-0.984)"
         )
@@ -285,8 +291,13 @@ class Isara2(_IsaraMixin):
             self._robot_arm.move_to(_Positions.HOME)
             return "home"
 
+        if name == "back":
+            return "back"
+
         if name == "put":
             return self._handle_put_traj()
+
+        raise NotImplementedError(f"running trajectory '{name}'")
 
     def _handle_openlid_command(self) -> str:
         if self._dewar_lid.is_moving():
@@ -302,6 +313,15 @@ class Isara2(_IsaraMixin):
         self._dewar_lid.close()
         return "closelid"
 
+    def _handle_clearmemory_command(self) -> str:
+        if self._robot_arm.is_moving():
+            return "Disabled when path is running"
+
+        return "clearmemory"
+
+    def _handle_reset_command(self) -> str:
+        return "reset"
+
     def _handle_operate_command(self, command: str) -> str:
         #
         # handle ISARA2 specific operate commands
@@ -316,6 +336,12 @@ class Isara2(_IsaraMixin):
 
         if command == CLOSELID:
             return self._handle_closelid_command()
+
+        if command == CLEARMEMORY:
+            return self._handle_clearmemory_command()
+
+        if command == RESET:
+            return self._handle_reset_command()
 
         # handle generic operate commands
         return super()._handle_operate_command(command)

@@ -8,7 +8,7 @@ RUN micromamba install --name base --channel conda-forge \
     python=3.9.16
 
 RUN mkdir /isara
-COPY atcpserv.py emu.py /isara/
+COPY overlord.py emu.py /isara/
 
 WORKDIR /isara
 

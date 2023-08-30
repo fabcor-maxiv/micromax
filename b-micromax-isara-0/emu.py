@@ -3,9 +3,9 @@ import sys
 import traceback
 import asyncio
 from enum import Enum
-from asyncio import StreamReader, StreamWriter
+from asyncio import StreamReader, StreamWriter, Event
 from argparse import ArgumentParser
-from atcpserv import AsyncTCPServer
+from overlord import Overlord
 
 DI = "di"
 DO = "do"
@@ -94,41 +94,50 @@ class _RobotArm:
 
 
 class _DewarLid:
-    def __init__(self):
-        #
-        # true - lid open
-        # false - lid closed
-        # None - lid is moving to open/closed position
-        #
-        self._open = True
+    OPEN_POS = 10
+    CLOSED_POS = 0
+
+    def __init__(self, overlord: Overlord):
+        self._overlord = overlord
+        self._position = self.OPEN_POS
+        self._target_position = None
+        self._target_position_set = Event()
+
+        self._update_overlord_attributes()
+
+    def start(self):
+        asyncio.create_task(self._run())
 
     def is_moving(self) -> bool:
-        return self._open is None
+        return self._target_position is not None
 
-    def _move_lid(self, opened: bool):
-        async def do_move():
-            print(f"{'opening' if opened else 'closing'} lid")
-            self._open = None
-            await asyncio.sleep(5)
-            self._open = opened
-            print(f"lid is now {'opened' if opened else 'closed'}")
+    def _update_overlord_attributes(self):
+        self._overlord.set_attr("dewarlid.position", self._position)
+        self._overlord.set_attr("dewarlid.moving", self.is_moving())
 
-        assert not self.is_moving()
-        asyncio.create_task(do_move())
+    async def _run(self):
+        async def move_lid():
+            while self._position != self._target_position:
+                step = 1 if self._position < self._target_position else -1
+                self._position += step
+                self._update_overlord_attributes()
+                await asyncio.sleep(0.6)
+
+            self._target_position = None
+            self._target_position_set.clear()
+            self._update_overlord_attributes()
+
+        while True:
+            await self._target_position_set.wait()
+            await move_lid()
 
     def open(self):
-        if self._open:
-            log("open lid request: already open, doing nothing")
-            return
-
-        self._move_lid(True)
+        self._target_position = self.OPEN_POS
+        self._target_position_set.set()
 
     def close(self):
-        if not self._open:
-            log("close lid request: already closed, doing nothing")
-            return
-
-        self._move_lid(False)
+        self._target_position = self.CLOSED_POS
+        self._target_position_set.set()
 
 
 class _IsaraMixin:
@@ -137,10 +146,11 @@ class _IsaraMixin:
     """
 
     def __init__(self):
+        self._overlord = Overlord()
         self._message = "System OK for operation"
         self._power_on = True
         self._robot_arm = _RobotArm()
-        self._dewar_lid = _DewarLid()
+        self._dewar_lid = _DewarLid(self._overlord)
 
     def _handle_state_command(self):
         # needs model specific implementation
@@ -208,6 +218,23 @@ class _IsaraMixin:
                 await _write_reply("monitor", writer, reply)
         except:
             print(traceback.format_exc())
+
+    async def start(self, overlord_port: int, operate_port: int, monitor_port: int):
+        self._dewar_lid.start()
+
+        op_srv = await asyncio.start_server(
+            self.new_operate_connection, host="0.0.0.0", port=operate_port
+        )
+
+        mon_srv = await asyncio.start_server(
+            self.new_monitor_connection, host="0.0.0.0", port=monitor_port
+        )
+
+        await asyncio.gather(
+            op_srv.serve_forever(),
+            mon_srv.serve_forever(),
+            self._overlord.start(overlord_port),
+        )
 
 
 class Isara(_IsaraMixin):
@@ -300,16 +327,10 @@ class Isara2(_IsaraMixin):
         raise NotImplementedError(f"running trajectory '{name}'")
 
     def _handle_openlid_command(self) -> str:
-        if self._dewar_lid.is_moving():
-            raise NotImplementedError("openld command while lid is moving")
-
         self._dewar_lid.open()
         return "openlid"
 
     def _handle_closelid_command(self) -> str:
-        if self._dewar_lid.is_moving():
-            raise NotImplementedError("closelid command while lid is moving")
-
         self._dewar_lid.close()
         return "closelid"
 
@@ -347,7 +368,7 @@ class Isara2(_IsaraMixin):
         return super()._handle_operate_command(command)
 
 
-def _listen(model: str, operate_port: int, monitor_port: int):
+async def _listen(model: str, overlord_port: int, operate_port: int, monitor_port: int):
     def init_model():
         classes = {"ISARA": Isara, "ISARA2": Isara2}
         klass = classes[model]
@@ -355,17 +376,15 @@ def _listen(model: str, operate_port: int, monitor_port: int):
         return klass()
 
     isara = init_model()
-    op_srv = AsyncTCPServer(operate_port, isara.new_operate_connection)
-    op_srv.start()
-
-    mon_srv = AsyncTCPServer(monitor_port, isara.new_monitor_connection)
-    mon_srv.start()
 
     log(
         f"emulating {model} API\n"
+        f" overlord port: {overlord_port}\n"
         f" operate port: {operate_port}\n"
         f" monitor port: {monitor_port}"
     )
+
+    await isara.start(overlord_port, operate_port, monitor_port)
 
 
 def _parse_args():
@@ -384,6 +403,11 @@ def _parse_args():
     )
 
     parser.add_argument(
+        "--overlord-port",
+        default=1111,
+    )
+
+    parser.add_argument(
         "--model",
         choices=["ISARA", "ISARA2"],
         default="ISARA2",
@@ -394,7 +418,9 @@ def _parse_args():
 
 def _main():
     args = _parse_args()
-    _listen(args.model, args.operate_port, args.monitor_port)
+    asyncio.run(
+        _listen(args.model, args.overlord_port, args.operate_port, args.monitor_port)
+    )
 
 
 _main()

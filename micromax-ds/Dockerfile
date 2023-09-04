@@ -9,7 +9,8 @@ COPY condarc /opt/conda/.condarc
 RUN micromamba install --name base --channel conda-forge \
     python=3.11.3 \
     sardana=3.4.0 \
-    tangods-isara-ns-09=1.0.0 \
+    isara-ns-09-lib=1.1.0 \
+    tangods-isara-ns-09=1.0.1 \
     circus=0.18.0
 
 # install our circus 'plug-in'

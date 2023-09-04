@@ -31,20 +31,20 @@ RUN mkdir /app
 WORKDIR /app
 
 # 'Core' repository
-RUN git clone --branch maxiv-micMax https://gitlab.maxiv.lu.se/kits-maxiv/mxcube/mxcubecore.git core
+RUN git clone --branch maxiv-develop https://gitlab.maxiv.lu.se/kits-maxiv/mxcube/mxcubecore.git core
 # pin to specified commit
-RUN cd core && git checkout f521c6038b5b1a97f4358c2390df101f7edfd305
+RUN cd core && git checkout 0c25efe58b9934ccf874b22395ab28f83b5285bb
+
 
 # 'Web' aka main repository
-RUN git clone --branch develop https://gitlab.maxiv.lu.se/kits-maxiv/mxcube/mxcube3.git web
+RUN git clone --branch maxiv-develop https://gitlab.maxiv.lu.se/kits-maxiv/mxcube/mxcube3.git web
 # pin to specified commit
-RUN cd web && git checkout 35d62cbc989953d22c6752a2d6e1204babc4979b
+RUN cd web && git checkout 07deed0b0944fbef0c4f0fd121e6b8667621132d
 
 # 'Configuration' repsitory
 RUN git clone --branch maxiv-micromax https://gitlab.maxiv.lu.se/kits-maxiv/mxcube/cfg-maxiv-mxcubecore.git conf
-
 # pin to specified commit
-RUN cd conf && git checkout 966edbddb85fed47d182360f2510331683976ff1
+RUN cd conf && git checkout 24816d8952e9ce372629ab21610b1d509c4e3230
 
 # remove web proxy from ISPyB configuration, to avoid emulating web proxy.
 # ISPyB is accessable without proxy on white network.

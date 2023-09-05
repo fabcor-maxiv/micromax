@@ -7,6 +7,8 @@ from asyncio import StreamReader, StreamWriter, Event
 from argparse import ArgumentParser
 from overlord import Overlord
 
+PUCKS_NUM = 29
+
 DI = "di"
 DO = "do"
 ON = "on"
@@ -44,10 +46,19 @@ async def _write_reply(connection_name: str, writer: StreamWriter, reply: str):
     log(f"{connection_name}< {reply}")
 
 
+def _encode_list(lst):
+    encoded = [_encode(v) for v in lst]
+    return ",".join(encoded)
+
+
 def _encode(val):
     t = type(val)
+
     if t == bool:
         return "1" if val else "0"
+
+    if t == list:
+        return _encode_list(val)
 
 
 def _get_command_args(command_name: str, command: str) -> list:
@@ -149,8 +160,17 @@ class _IsaraMixin:
         self._overlord = Overlord()
         self._message = "System OK for operation"
         self._power_on = True
+
+        # puck present in the dewar
+        self._dewar_pucks = [False] * PUCKS_NUM
+        # start with a couple of pucks present, for convenience
+        self._dewar_pucks[0] = True
+        self._dewar_pucks[PUCKS_NUM - 1] = True
+
         self._robot_arm = _RobotArm()
         self._dewar_lid = _DewarLid(self._overlord)
+
+        self._update_overlord_attributes()
 
     def _handle_state_command(self):
         # needs model specific implementation
@@ -197,7 +217,7 @@ class _IsaraMixin:
 
         assert False, f"unexpected command {command} on monitor connection"
 
-    async def new_operate_connection(self, reader: StreamReader, writer: StreamWriter):
+    async def _new_operate_connection(self, reader: StreamReader, writer: StreamWriter):
         log("new operate connection")
         try:
             while True:
@@ -208,7 +228,7 @@ class _IsaraMixin:
         except:
             print(traceback.format_exc())
 
-    async def new_monitor_connection(self, reader: StreamReader, writer: StreamWriter):
+    async def _new_monitor_connection(self, reader: StreamReader, writer: StreamWriter):
         log("new monitor connection")
         try:
             while True:
@@ -219,15 +239,37 @@ class _IsaraMixin:
         except:
             print(traceback.format_exc())
 
+    def _update_overlord_attributes(self):
+        self._overlord.set_attr("dewar.pucks", self._dewar_pucks)
+
+    def _handle_overlord_puck_command(self, puck_number: str, is_present: str):
+        puck_number = int(puck_number)
+        is_present = is_present == "true"
+        if puck_number < 0 or puck_number > PUCKS_NUM:
+            log(f"invalid puck number {puck_number}, ignoring")
+            return
+
+        self._dewar_pucks[puck_number] = is_present
+        self._update_overlord_attributes()
+
+    async def _process_overlord_commands(self):
+        while True:
+            command = await self._overlord.get_command()
+            if command.name == "puck":
+                self._handle_overlord_puck_command(*command.args)
+            else:
+                log(f"unexpected overlord command {command}, ignoring")
+
     async def start(self, overlord_port: int, operate_port: int, monitor_port: int):
         self._dewar_lid.start()
+        asyncio.create_task(self._process_overlord_commands())
 
         op_srv = await asyncio.start_server(
-            self.new_operate_connection, host="0.0.0.0", port=operate_port
+            self._new_operate_connection, host="0.0.0.0", port=operate_port
         )
 
         mon_srv = await asyncio.start_server(
-            self.new_monitor_connection, host="0.0.0.0", port=monitor_port
+            self._new_monitor_connection, host="0.0.0.0", port=monitor_port
         )
 
         await asyncio.gather(
@@ -288,10 +330,19 @@ class Isara2(_IsaraMixin):
         )
 
     def _handle_do_command(self) -> str:
+        puck_presence = _encode(self._dewar_pucks)
+
         return (
-            "do(0,0,1,0,0,1,0,1,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0"
-            ",0,0,0,0,0,1,0,0,0,0,0,0,1,0,0,0,0,0,1,1,0,0,0,0,0,1,1,0,0,1,1,0,0,0,0,0,0,0,0,"
-            "0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0)"
+            "do("
+            "0,0,1,0,0,1,0,1,0,0,"  #  0 -  9
+            "1,0,0,0,0,0,0,0,0,0,"  # 10 - 19
+            "0,0,0,1,0,0,0,0,0,0,"  # 20 - 29
+            "0,0,0,0,0,0,0,0,0,0,"  # 30 - 39
+            "0,0,0,1,0,0,0,0,0,0,"  # 40 - 49
+            f"1,0,0,0,0,0,{puck_presence},0,0,0,0,0,"  # 50 - 89
+            "0,0,0,0,0,0,0,0,0,0,"  # 90 - 99
+            "0,0,0,0,0,0,0,0,0,0,"  # 100 - 110
+            "0,0)"
         )
 
     def _handle_put_traj(self) -> str:

@@ -159,6 +159,14 @@ class _IsaraMixin:
     def __init__(self):
         self._overlord = Overlord()
         self._message = "System OK for operation"
+        #
+        # emulates the robot PLC modes, i.e. the key switch modes
+        #
+        # we only emulate:
+        #   'remote mode' (_remote_mode = True)
+        #   'manual mode' (_remote_mode = False)
+        #
+        self._remote_mode = True
         self._power_on = True
 
         # puck present in the dewar
@@ -185,10 +193,16 @@ class _IsaraMixin:
         raise NotImplementedError()
 
     def _handle_on_command(self) -> str:
+        if not self._remote_mode:
+            return "Remote mode requested"
+
         self._power_on = True
         return "on"
 
     def _handle_off_command(self) -> str:
+        if not self._remote_mode:
+            return "Remote mode requested"
+
         self._power_on = False
         return "off"
 
@@ -241,6 +255,7 @@ class _IsaraMixin:
 
     def _update_overlord_attributes(self):
         self._overlord.set_attr("dewar.pucks", self._dewar_pucks)
+        self._overlord.set_attr("plc.remote_mode", self._remote_mode)
 
     def _handle_overlord_puck_command(self, puck_number: str, is_present: str):
         puck_number = int(puck_number)
@@ -252,11 +267,25 @@ class _IsaraMixin:
         self._dewar_pucks[puck_number] = is_present
         self._update_overlord_attributes()
 
+    def _handle_overlord_remote_command(self, remote_enabled):
+        remote_enabled = remote_enabled == "true"
+        if self._remote_mode == remote_enabled:
+            # same mode, ignore
+            return
+
+        self._remote_mode = remote_enabled
+        # when flipping mode, robot is powered off
+        self._power_on = False
+
+        self._update_overlord_attributes()
+
     async def _process_overlord_commands(self):
         while True:
             command = await self._overlord.get_command()
             if command.name == "puck":
                 self._handle_overlord_puck_command(*command.args)
+            elif command.name == "remote":
+                self._handle_overlord_remote_command(*command.args)
             else:
                 log(f"unexpected overlord command {command}, ignoring")
 

@@ -19,6 +19,7 @@ RUN micromamba install --name base --channel conda-forge \
     python-ldap=3.4.0 \
     # for building front-end \
     nodejs=18.15.0 \
+    pnpm=8.6.5 \
     # MAXIV specific packages for MXCube
     sdm=1.8.8 \
     sardana=3.4.0
@@ -57,8 +58,9 @@ RUN /opt/conda/bin/pip install -e core
 
 # build front-end
 WORKDIR /app/web/ui
-RUN /bin/micromamba run -p /opt/conda npm install
-RUN /bin/micromamba run -p /opt/conda npm run build
+RUN /bin/micromamba run -p /opt/conda pnpm remove 'cypress' '@testing-library/cypress'
+RUN /bin/micromamba run -p /opt/conda pnpm install
+RUN /bin/micromamba run -p /opt/conda pnpm run build
 
 # move generated UI files outside of git repository,
 # this way we can mount over /app/web directory

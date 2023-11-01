@@ -1,4 +1,4 @@
-FROM mambaorg/micromamba:1.4.2
+FROM mambaorg/micromamba:1.5.1
 
 USER root
 RUN apt-get update

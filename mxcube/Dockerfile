@@ -61,6 +61,12 @@ WORKDIR /app/web/ui
 RUN /bin/micromamba run -p /opt/conda npm install
 RUN /bin/micromamba run -p /opt/conda npm run build
 
+# move generated UI files outside of git repository,
+# this way we can mount over /app/web directory
+# from outside, if needed, for editing purpuses
+RUN mkdir /opt/mxcube
+RUN mv /app/web/ui/build /opt/mxcube
+
 # install convenience script for running mxcube from terminal
 COPY run.sh /app/
 

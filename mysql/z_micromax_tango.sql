@@ -21,10 +21,13 @@ VALUES ('Micromax/Door/01','Door_Micromax','Micromax','Door','01',0,'nada','nada
        ('dserver/VacPlc01/0',NULL,'dserver','VacPlc01','0',0,'nada','nada','VacPlc01/0',0,'DServer','0',NULL,NULL,NULL);
 
 
-
 INSERT INTO `property_attribute_device`
 VALUES ('motor/faux_ctrl/1','StartPosition','__value',1,'5277.64','2023-08-03 13:01:11','2023-08-03 13:01:11',NULL),
-       ('motor/faux_ctrl/2','StartPosition','__value',1,'909.9','2023-08-10 05:55:39','2023-08-10 05:55:39',NULL);
+       ('motor/faux_ctrl/2','StartPosition','__value',1,'909.9','2023-08-10 05:55:39','2023-08-10 05:55:39',NULL),
+       ('motor/faux_ctrl/1','Position','min_value',1,'5000','2023-11-02 08:05:04','2023-11-02 08:05:04',NULL),
+       ('motor/faux_ctrl/1','Position','max_value',1,'21000','2023-11-02 08:05:10','2023-11-02 08:05:10',NULL),
+       ('motor/faux_ctrl/2','Position','min_value',1,'185','2023-11-02 08:43:44','2023-11-02 08:43:44',NULL),
+       ('motor/faux_ctrl/2','Position','max_value',1,'920','2023-11-02 08:43:49','2023-11-02 08:43:49',NULL);
 
 
 INSERT INTO `property_device`

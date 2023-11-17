@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+from typing import Optional
 import sys
 import traceback
 import asyncio
@@ -167,6 +168,7 @@ class _IsaraMixin:
         #   'manual mode' (_remote_mode = False)
         #
         self._remote_mode = True
+        self._door_closed = True
         self._power_on = True
 
         # puck present in the dewar
@@ -192,16 +194,25 @@ class _IsaraMixin:
         # needs model specific implementation
         raise NotImplementedError()
 
-    def _handle_on_command(self) -> str:
+    def _check_plc(self) -> Optional[str]:
         if not self._remote_mode:
             return "Remote mode requested"
+
+        if not self._door_closed:
+            return "Doors must be closed"
+
+    def _handle_on_command(self) -> str:
+        plc_err = self._check_plc()
+        if plc_err is not None:
+            return plc_err
 
         self._power_on = True
         return "on"
 
     def _handle_off_command(self) -> str:
-        if not self._remote_mode:
-            return "Remote mode requested"
+        plc_err = self._check_plc()
+        if plc_err is not None:
+            return plc_err
 
         self._power_on = False
         return "off"
@@ -256,6 +267,7 @@ class _IsaraMixin:
     def _update_overlord_attributes(self):
         self._overlord.set_attr("dewar.pucks", self._dewar_pucks)
         self._overlord.set_attr("plc.remote_mode", self._remote_mode)
+        self._overlord.set_attr("plc.door_closed", self._door_closed)
 
     def _handle_overlord_puck_command(self, puck_number: str, is_present: str):
         puck_number = int(puck_number)
@@ -279,6 +291,10 @@ class _IsaraMixin:
 
         self._update_overlord_attributes()
 
+    def _handle_overlord_door_closed_command(self, door_closed):
+        self._door_closed = door_closed == "true"
+        self._update_overlord_attributes()
+
     async def _process_overlord_commands(self):
         while True:
             command = await self._overlord.get_command()
@@ -286,6 +302,8 @@ class _IsaraMixin:
                 self._handle_overlord_puck_command(*command.args)
             elif command.name == "remote":
                 self._handle_overlord_remote_command(*command.args)
+            elif command.name == "door_closed":
+                self._handle_overlord_door_closed_command(*command.args)
             else:
                 log(f"unexpected overlord command {command}, ignoring")
 

@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
+import asyncio
 import sys
 import math
 import traceback
 from time import time
-from asyncio import StreamReader, StreamWriter
+from asyncio import StreamReader, StreamWriter, Lock
 from atcpserv import AsyncTCPServer
 
+MOTOR_STEPS = 8
 PORT = 9001
 
 STX = b"\02"
@@ -13,12 +15,9 @@ ETX = b"\03"
 ARRAY_SEP = "\x1f"
 
 READ = "READ "
+WRTE = "WRTE "
 LIST = "LIST"
 EXEC = "EXEC "
-
-
-def epoch_milisec() -> int:
-    return int(time() * 1000)
 
 
 def log(msg: str):
@@ -60,12 +59,33 @@ def encode_val(val) -> str:
     assert False, f"unsupported value type {val_type}"
 
 
-class UnknownAttribue(Exception):
+def parse_bool(val: str) -> bool:
+    val = val.lower()
+    if val == "true":
+        return True
+    if val == "false":
+        return False
+
+    assert False, f"unexpected boolean {val}"
+
+
+class UnknownAttribute(Exception):
     pass
 
 
 class UnknownCommand(Exception):
     pass
+
+
+class SynchronizedWriter:
+    def __init__(self, writer: StreamWriter):
+        self._writer = writer
+        self._lock = Lock()
+
+    async def write_drain(self, msg):
+        async with self._lock:
+            self._writer.write(msg)
+            await self._writer.drain()
 
 
 class MD3Up:
@@ -154,9 +174,15 @@ class MD3Up:
     def read_attribute(self, attribute_name: str):
         val = self._attrs.get(attribute_name)
         if val is None:
-            raise UnknownAttribue()
+            raise UnknownAttribute()
 
         return val
+
+    def write_attribute(self, attribute_name: str, attribute_value):
+        if attribute_name not in self._attrs:
+            raise UnknownAttribute()
+
+        self._attrs[attribute_name] = attribute_value
 
     def list_commands(self):
         print(list(self._commands.items()))
@@ -176,10 +202,10 @@ class Exporter:
     def __init__(self):
         self._md3 = MD3Up()
 
-    async def _write_reply(self, writer: StreamWriter, reply: str):
+    async def _write_reply(self, writer: SynchronizedWriter, reply: str):
         msg = STX + reply.encode() + ETX
-        writer.write(msg)
-        await writer.drain()
+
+        await writer.write_drain(msg)
 
         log(f"< {msg}")
 
@@ -194,14 +220,59 @@ class Exporter:
         # chop off STX and ETX bytes
         return message[1:-1].decode()
 
+    async def _update_attribute(self, writer: SynchronizedWriter, name: str, val):
+        self._md3.write_attribute(name, val)
+
+        timestamp = int(time())
+        msg = f"EVT:{name}\t{val}\t{timestamp}\torg.embl.State"
+
+        await self._write_reply(writer, msg)
+
+    async def _move_motor(
+        self, writer: SynchronizedWriter, motor_pos_attr: str, new_pos: float
+    ):
+        motor_name = motor_pos_attr[: -len("Position")]
+        motor_state_attr = f"{motor_name}State"
+
+        start_pos = self._md3.read_attribute(motor_pos_attr)
+        step = (new_pos - start_pos) / MOTOR_STEPS
+
+        await self._update_attribute(writer, motor_state_attr, "Moving")
+
+        for n in range(1, MOTOR_STEPS + 1):
+            step_pos = start_pos + (n * step)
+
+            # Omega is a rotation angle motor, thus a special case.
+            # MD3 automatically wraps any set value within 0..360 degrees range.
+            if motor_name == "Omega":
+                step_pos = step_pos % 360.0
+
+            await self._update_attribute(writer, motor_pos_attr, step_pos)
+            await asyncio.sleep(2 / MOTOR_STEPS)
+
+        await self._update_attribute(writer, motor_state_attr, "Ready")
+
     def _handle_read(self, attr_name: str) -> str:
         try:
             val = self._md3.read_attribute(attr_name)
             return f"RET:{encode_val(val)}"
-        except UnknownAttribue:
+        except UnknownAttribute:
             log(f"WARNING: read command for an unknown attribute '{attr_name}'")
             # this seems to be the error message MD3UP generates for unknown attributes
             return f"ERR:Undefined method: true.get{attr_name}"
+
+    def _handle_write(self, slug: str, writer: SynchronizedWriter) -> str:
+        name, val = slug.split(" ", 2)
+        val_type = type(self._md3.read_attribute(name))
+
+        if val_type == float:
+            asyncio.create_task(self._move_motor(writer, name, float(val)))
+        elif val_type == bool:
+            asyncio.create_task(self._update_attribute(writer, name, parse_bool(val)))
+        else:
+            assert f"unexpected attribute type {val_type}"
+
+        return "NULL"
 
     def _handle_exec(self, command: str) -> str:
         cmd_name, args = command.split(" ", 1)
@@ -220,26 +291,33 @@ class Exporter:
 
         return f"RET:{cmds}"
 
-    def _handle_message(self, msg: str):
-        if msg.startswith(READ):
-            return self._handle_read(msg[len(READ) :])
+    async def _handle_message(self, msg: str, writer: SynchronizedWriter):
+        def get_reply():
+            if msg.startswith(READ):
+                return self._handle_read(msg[len(READ) :])
 
-        if msg.startswith(EXEC):
-            return self._handle_exec(msg[len(EXEC) :])
+            if msg.startswith(WRTE):
+                return self._handle_write(msg[len(WRTE) :], writer)
 
-        if msg.startswith(LIST):
-            return self._handle_list()
+            if msg.startswith(EXEC):
+                return self._handle_exec(msg[len(EXEC) :])
 
-        assert False, f"unexpected message '{msg}'"
+            if msg.startswith(LIST):
+                return self._handle_list()
+
+            assert False, f"unexpected message '{msg}'"
+
+        await self._write_reply(writer, get_reply())
 
     async def new_connection(self, reader: StreamReader, writer: StreamWriter):
         log("MD3 new connection")
 
+        sync_writer = SynchronizedWriter(writer)
+
         try:
             while True:
                 msg = await self._read_message(reader)
-                reply = self._handle_message(msg)
-                await self._write_reply(writer, reply)
+                await self._handle_message(msg, sync_writer)
         except Exception as ex:
             log(f"error: {str(ex)}")
             traceback.print_exception(ex)

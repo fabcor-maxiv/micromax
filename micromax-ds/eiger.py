@@ -1,17 +1,88 @@
 #!/usr/bin/env python
+from typing import Optional, Union, Any
+from dataclasses import dataclass
+from tango import AttrWriteType
+from tango.server import Device, attribute, command
 
-from tango.server import Device, attribute
+
+@dataclass
+class _WriteableAttr:
+    name: str
+    dtype: type
+    default_value: Any
+    min_value: Optional[Union[int, float]] = None
+    max_value: Optional[Union[int, float]] = None
+
+
+WRITEABLE_ATTRIBUTES = [
+    _WriteableAttr("DiscardNew", bool, False),
+    _WriteableAttr("MonitorMode", str, "enabled"),
+    _WriteableAttr("FilewriterMode", str, "enabled"),
+    _WriteableAttr("PhotonEnergy", float, 6000, min_value=4000, max_value=160000),
+    _WriteableAttr("Compression", str, "bslz4"),
+    _WriteableAttr("CountTime", float, 32.2),
+    _WriteableAttr("FrameTime", float, 0.04, min_value=0.00204081693664193),
+    _WriteableAttr("OmegaStart", float, 1.1),
+    _WriteableAttr("BeamCenterX", float, 1465.8004),
+    _WriteableAttr("BeamCenterY", float, 1920.6501),
+    _WriteableAttr("DetectorDistance", float, 0.50000834),
+    _WriteableAttr("FilenamePattern", str, "/tmp/data"),
+    _WriteableAttr("ImagesPerFile", int, 100),
+    _WriteableAttr("NbImages", int, 1800),
+    _WriteableAttr("NbTriggers", int, 29),
+    _WriteableAttr("OmegaIncrement", float, 0.1),
+    _WriteableAttr("RoiMode", str, "disabled"),
+    _WriteableAttr("TriggerMode", str, "exts"),
+]
 
 
 class Eiger(Device):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        self._compression = "bslz4"
+        self._attribute_vals = dict()
+        self._status = "ready"
+        self._init_writeable_attributes()
 
-    @attribute(name="NbImages", dtype=int)
-    def nb_images(self):
-        return 1800
+    def _init_writeable_attributes(self):
+        def attr_reader(name):
+            return self._attribute_vals[name]
+
+        def attr_writer(name, value):
+            self._attribute_vals[name] = value
+
+        def make_reader(attr_name):
+            return lambda _, __, name=attr_name: attr_reader(name)
+
+        def make_writer(attr_name):
+            return lambda _, attrib, name=attr_name: attr_writer(
+                name, attrib.get_write_value()
+            )
+
+        for attr in WRITEABLE_ATTRIBUTES:
+            attr_cfg = dict(
+                name=attr.name, dtype=attr.dtype, access=AttrWriteType.READ_WRITE
+            )
+            if attr.min_value is not None:
+                attr_cfg["min_value"] = attr.min_value
+
+            if attr.max_value is not None:
+                attr_cfg["max_value"] = attr.max_value
+
+            self.add_attribute(
+                attribute(**attr_cfg),
+                make_reader(attr.name),
+                make_writer(attr.name),
+            )
+
+            self._attribute_vals[attr.name] = attr.default_value
+
+    def dev_status(self) -> str:
+        return f"{self._status}\n\n"
+
+    #
+    # read-only attributes
+    #
 
     @attribute(name="Temperature", dtype=float)
     def temperature(self):
@@ -20,18 +91,6 @@ class Eiger(Device):
     @attribute(name="Humidity", dtype=float)
     def humidity(self):
         return 80.2
-
-    @attribute(name="CountTime", dtype=float)
-    def count_time(self):
-        return 32.2
-
-    @attribute(name="FrameTime", dtype=float, min_value=0.00204081693664193)
-    def frame_time(self):
-        return 0.04
-
-    @attribute(name="PhotonEnergy", dtype=float, min_value=4000, max_value=160000)
-    def photon_energy(self):
-        return 6000
 
     @attribute(name="Wavelength", dtype=float)
     def wavelength(self):
@@ -48,10 +107,6 @@ class Eiger(Device):
     @attribute(name="AutoSummationEnabled", dtype=bool)
     def auto_summation_enabled(self):
         return False
-
-    @attribute(name="TriggerMode", dtype=str)
-    def trigger_mode(self):
-        return "TriggerMode TBD"
 
     @attribute(name="RateCorrectionEnabled", dtype=bool)
     def rate_correction_enabled(self):
@@ -72,10 +127,6 @@ class Eiger(Device):
     @attribute(name="Time", dtype=str)
     def time(self):
         return "Time TBD"
-
-    @attribute(name="NbTriggers", dtype=int)
-    def nb_triggers(self):
-        return 3
 
     @attribute(name="XPixelSize", dtype=float)
     def x_pixel_size(self):
@@ -100,30 +151,6 @@ class Eiger(Device):
     @attribute(name="Error", dtype=str)
     def error(self):
         return "Error TBD"
-
-    @attribute(name="BeamCenterX", dtype=float)
-    def beam_center_x(self):
-        return 0.0
-
-    @attribute(name="BeamCenterY", dtype=float)
-    def beam_center_y(self):
-        return 0.0
-
-    @attribute(name="DetectorDistance", dtype=float)
-    def detector_distance(self):
-        return 500
-
-    @attribute(name="OmegaIncrement", dtype=float)
-    def omega_increment(self):
-        return 0.01
-
-    @attribute(name="OmegaStart", dtype=float)
-    def omega_start(self):
-        return 1.1
-
-    @attribute(name="RoiMode", dtype=str)
-    def roi_mode(self):
-        return "RoiMode TBD"
 
     @attribute(name="XPixelsDetector", dtype=int)
     def x_pixels_detector(self):
@@ -153,14 +180,6 @@ class Eiger(Device):
     def stream_state(self):
         return "StreamState TBD"
 
-    @attribute(name="FilenamePattern", dtype=str)
-    def filename_pattern(self):
-        return "FilenamePattern TBD"
-
-    @attribute(name="ImagesPerFile", dtype=int)
-    def images_per_file(self):
-        return 100
-
     # remaining buffer space in KB
     @attribute(name="BufferFree", dtype="DevULong64")
     def buffer_free(self):
@@ -177,29 +196,29 @@ class Eiger(Device):
     def image_nb_start(self):
         return 0
 
-    # image_nr_low metadata parameter in the first HDF5 data file
-    @attribute(name="MonitorMode", dtype=str)
-    def monitor_mode(self):
-        return "MonitorMode TBD"
+    #
+    # commands
+    #
 
-    @attribute(name="DiscardNew", dtype=bool)
-    def discard_new(self):
-        return False
+    @command
+    def Cancel(self):
+        self._status = "idle"
 
-    # Operation mode, can be enabled or disabled
-    @attribute(name="FilewriterMode", dtype=str)
-    def filewriter_mode(self):
-        return "enabled"
+    @command
+    def Arm(self):
+        self._status = "ready"
 
-    compression = attribute(name="Compression", dtype=str)
+    @command
+    def Disarm(self):
+        self._status = "idle"
 
-    @compression.getter
-    def _compression_read(self):
-        return self._compression
+    @command
+    def EnableStream(self):
+        pass
 
-    @compression.setter
-    def _compression_write(self, value):
-        self._compression = value
+    @command
+    def DisableStream(self):
+        pass
 
 
 if __name__ == "__main__":

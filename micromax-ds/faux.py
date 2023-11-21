@@ -62,8 +62,6 @@ class FauxMotorController(MotorController):
         except StopIteration:
             motor.steps = None
 
-        motor.position = motor.target_position
-
     def ReadOne(self, axis):
         # print(f"ReadOne {axis=}")
         motor = self._motors[axis]

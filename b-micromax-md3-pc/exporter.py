@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+from typing import Optional
 import asyncio
 import sys
 import math
@@ -59,14 +60,26 @@ def encode_val(val) -> str:
     assert False, f"unsupported value type {val_type}"
 
 
-def parse_bool(val: str) -> bool:
-    val = val.lower()
-    if val == "true":
-        return True
-    if val == "false":
-        return False
+def parse_val(val_type, val):
+    def parse_bool(val: str) -> bool:
+        val = val.lower()
+        if val == "true":
+            return True
+        if val == "false":
+            return False
 
-    assert False, f"unexpected boolean {val}"
+        assert False, f"unexpected boolean {val}"
+
+    if val_type == int:
+        return int(val)
+
+    if val_type == bool:
+        return parse_bool(val)
+
+    if val_type == float:
+        return float(val)
+
+    assert False, f"unsupported value type {val_type}"
 
 
 class UnknownAttribute(Exception):
@@ -171,6 +184,23 @@ class MD3Up:
     def _do_start_set_phase(self, _phase) -> int:
         return self._get_synchronization_id()
 
+    def get_motor_name(self, attribute_name: str) -> Optional[str]:
+        """
+        For a motor position attributes, returns the motor name.
+        If not a motor position attribute, return None.
+
+        For example returns 'Omega' for 'OmegaPosition', and for 'FooBarAttribute' returns None.
+        """
+        if not attribute_name.endswith("Position"):
+            return None
+
+        motor_name = attribute_name[: -len("Position")]
+        if motor_name not in self._motors:
+            # does not seem to be a motor
+            return None
+
+        return motor_name
+
     def read_attribute(self, attribute_name: str):
         val = self._attrs.get(attribute_name)
         if val is None:
@@ -229,9 +259,9 @@ class Exporter:
         await self._write_reply(writer, msg)
 
     async def _move_motor(
-        self, writer: SynchronizedWriter, motor_pos_attr: str, new_pos: float
+        self, writer: SynchronizedWriter, motor_name: str, new_pos: float
     ):
-        motor_name = motor_pos_attr[: -len("Position")]
+        motor_pos_attr = f"{motor_name}Position"
         motor_state_attr = f"{motor_name}State"
 
         start_pos = self._md3.read_attribute(motor_pos_attr)
@@ -263,14 +293,15 @@ class Exporter:
 
     def _handle_write(self, slug: str, writer: SynchronizedWriter) -> str:
         name, val = slug.split(" ", 2)
-        val_type = type(self._md3.read_attribute(name))
+        attr_type = type(self._md3.read_attribute(name))
+        val = parse_val(attr_type, val)
 
-        if val_type == float:
-            asyncio.create_task(self._move_motor(writer, name, float(val)))
-        elif val_type == bool:
-            asyncio.create_task(self._update_attribute(writer, name, parse_bool(val)))
+        motor_name = self._md3.get_motor_name(name)
+        if motor_name is None:
+            # this is a motor position attribute, emulate moving motor
+            asyncio.create_task(self._update_attribute(writer, name, val))
         else:
-            assert f"unexpected attribute type {val_type}"
+            asyncio.create_task(self._move_motor(writer, motor_name, val))
 
         return "NULL"
 

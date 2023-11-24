@@ -172,6 +172,18 @@ class MD3Up:
             "getMotorLimits": ("double[]", "String", self._do_get_motor_limits),
             # int startSetPhase(Phase)
             "startSetPhase": ("int", "Phase", self._do_start_set_phase),
+            # int startRasterScan(double, double, int, int, boolean, boolean, boolean)
+            "startRasterScan": (
+                "int",
+                "double, double, int, int, boolean, boolean, boolean",
+                self._do_start_raster_scan,
+            ),
+            # int startScanEx(int, double, double, double, int)
+            "startScanEx": (
+                "int",
+                "int, double, double, double, int",
+                self._do_start_scan_ex,
+            ),
         }
 
     def _get_synchronization_id(self):
@@ -182,6 +194,28 @@ class MD3Up:
         return self._motors[motor_name]
 
     def _do_start_set_phase(self, _phase) -> int:
+        return self._get_synchronization_id()
+
+    def _do_start_raster_scan(
+        self,
+        _vertical_range,
+        _horizontal_range,
+        _vert_num_frames,
+        _horiz_num_frames,
+        _enable_reverse_direction,
+        _use_centring_table,
+        _fast_scan,
+    ) -> int:
+        return self._get_synchronization_id()
+
+    def _do_start_scan_ex(
+        self,
+        _frame_id,
+        _start_angle,
+        _scan_range,
+        _exposure_time,
+        _number_of_passes,
+    ) -> int:
         return self._get_synchronization_id()
 
     def get_motor_name(self, attribute_name: str) -> Optional[str]:

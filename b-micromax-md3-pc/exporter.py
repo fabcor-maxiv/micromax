@@ -59,6 +59,9 @@ def encode_val(val) -> str:
     if val_type == bool:
         return "true" if val else "false"
 
+    if val_type == type(None):
+        return "null"
+
     assert False, f"unsupported value type {val_type}"
 
 
@@ -217,6 +220,8 @@ class MD3Up:
             "isTaskRunning": ("boolean", "int", self._do_is_task_running),
             # String[] getTaskInfo(int)
             "getTaskInfo": ("String[]", "int", self._do_get_task_info),
+            # void saveCentringPositions()
+            "saveCentringPositions": ("void", "", self._do_save_centring_positions),
         }
 
     def _add_task(self, name: str, running_time: float):
@@ -290,6 +295,10 @@ class MD3Up:
             exception,
             result_id,
         ]
+
+    def _do_save_centring_positions(self):
+        # this is NOP for now
+        pass
 
     def get_motor_name(self, attribute_name: str) -> Optional[str]:
         """
@@ -413,7 +422,11 @@ class Exporter:
 
     def _handle_exec(self, command: str) -> str:
         cmd_name, args = command.split(" ", 1)
-        args = args.strip().split("\t")
+        if args == "":
+            # no arguments specified
+            args = []
+        else:
+            args = args.strip().split("\t")
 
         try:
             ret = self._md3.exec_command(cmd_name, args)

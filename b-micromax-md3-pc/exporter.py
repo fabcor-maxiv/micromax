@@ -6,7 +6,9 @@ import math
 import traceback
 from time import time
 from asyncio import StreamReader, StreamWriter, Lock
+from datetime import datetime
 from atcpserv import AsyncTCPServer
+from dataclasses import dataclass
 
 MOTOR_STEPS = 8
 PORT = 9001
@@ -82,11 +84,25 @@ def parse_val(val_type, val):
     assert False, f"unsupported value type {val_type}"
 
 
+def epoch_as_text(epoch: float) -> str:
+    """
+    convert time in epoch seconds to textual date-time format
+    """
+    txt = datetime.fromtimestamp(epoch).strftime("%Y-%m-%d %H:%M:%S.%f")
+    # cut of last 3 digit, so that seconds are returned with milliseconds precision,
+    # e.g '2023-12-12 15:44:15.695130' becomes '2023-12-12 15:44:15.695'
+    return txt[:-3]
+
+
 class UnknownAttribute(Exception):
     pass
 
 
 class UnknownCommand(Exception):
+    pass
+
+
+class CommandError(Exception):
     pass
 
 
@@ -101,9 +117,22 @@ class SynchronizedWriter:
             await self._writer.drain()
 
 
+@dataclass
+class Task:
+    name: str
+    # times are in unix epoch seconds
+    start_time: float
+    end_time: float
+
+    def is_running(self) -> bool:
+        return self.end_time > time()
+
+
 class MD3Up:
     def __init__(self):
         self._synchronization_id = 0
+
+        self._tasks = {}
 
         self._motors = {
             # name: (limits)
@@ -184,17 +213,36 @@ class MD3Up:
                 "int, double, double, double, int",
                 self._do_start_scan_ex,
             ),
+            # boolean isTaskRunning(int)
+            "isTaskRunning": ("boolean", "int", self._do_is_task_running),
+            # String[] getTaskInfo(int)
+            "getTaskInfo": ("String[]", "int", self._do_get_task_info),
         }
 
-    def _get_synchronization_id(self):
-        self._synchronization_id += 1
-        return self._synchronization_id
+    def _add_task(self, name: str, running_time: float):
+        def get_synchronization_id():
+            self._synchronization_id += 1
+            return self._synchronization_id
+
+        task_id = get_synchronization_id()
+        now = time()
+        self._tasks[task_id] = Task(name, now, now + running_time)
+
+        return task_id
+
+    def _get_task(self, task_id: str) -> Task:
+        task_id = int(task_id)
+        task = self._tasks.get(task_id)
+        if task is None:
+            raise CommandError(f"Invalid task: {task_id}")
+
+        return task
 
     def _do_get_motor_limits(self, motor_name) -> tuple[float, float]:
         return self._motors[motor_name]
 
     def _do_start_set_phase(self, _phase) -> int:
-        return self._get_synchronization_id()
+        return self._add_task(f"Set {_phase.upper()} PHASE", 2.3)
 
     def _do_start_raster_scan(
         self,
@@ -206,7 +254,7 @@ class MD3Up:
         _use_centring_table,
         _fast_scan,
     ) -> int:
-        return self._get_synchronization_id()
+        return self._add_task("Start RASTER SCAN", 5.2)
 
     def _do_start_scan_ex(
         self,
@@ -216,7 +264,32 @@ class MD3Up:
         _exposure_time,
         _number_of_passes,
     ) -> int:
-        return self._get_synchronization_id()
+        return self._add_task("Start SCAN", 3.2)
+
+    def _do_is_task_running(self, task_id) -> bool:
+        task = self._get_task(task_id)
+        return task.is_running()
+
+    def _do_get_task_info(self, task_id):
+        def get_reply_vals():
+            if task.is_running():
+                return "", "", "", ""
+
+            # finished, aka not running
+            return epoch_as_text(task.end_time), "true", "null", "1"
+
+        task = self._get_task(task_id)
+        end_time, result, exception, result_id = get_reply_vals()
+
+        return [
+            task.name,
+            "8",
+            epoch_as_text(task.start_time),
+            end_time,
+            result,
+            exception,
+            result_id,
+        ]
 
     def get_motor_name(self, attribute_name: str) -> Optional[str]:
         """
@@ -249,7 +322,6 @@ class MD3Up:
         self._attrs[attribute_name] = attribute_value
 
     def list_commands(self):
-        print(list(self._commands.items()))
         for name, (ret_type, args, _) in self._commands.items():
             yield name, ret_type, args
 
@@ -343,7 +415,10 @@ class Exporter:
         cmd_name, args = command.split(" ", 1)
         args = args.strip().split("\t")
 
-        ret = self._md3.exec_command(cmd_name, args)
+        try:
+            ret = self._md3.exec_command(cmd_name, args)
+        except CommandError as cmd_err:
+            return f"ERR:{str(cmd_err)}"
 
         return f"RET:{encode_val(ret)}"
 

@@ -5,11 +5,14 @@ RUN apt-get update
 RUN apt-get -y install nano
 
 RUN micromamba install --name base --channel conda-forge \
-    python=3.9.16
+    python=3.10.9
 
 RUN mkdir /isara
-COPY overlord.py emu.py /isara/
+
+
+COPY emu/*.py /isara/emu/
+COPY overlord/*.py /isara/overlord/
+COPY isara.py overlord.py /isara
 
 WORKDIR /isara
-
-CMD [ "/isara/emu.py" ]
+CMD ["/isara/isara.py"]

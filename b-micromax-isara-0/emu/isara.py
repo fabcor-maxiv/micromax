@@ -1,12 +1,11 @@
 #!/usr/bin/env python3
 from typing import Optional
-import sys
 import traceback
 import asyncio
+from sys import stderr
 from enum import Enum
-from asyncio import StreamReader, StreamWriter, Event
-from argparse import ArgumentParser
-from overlord import Overlord
+from asyncio import StreamReader, StreamWriter, Event, IncompleteReadError
+from .watchable_attrs import WatchableAttrsMixin
 
 PUCKS_NUM = 29
 
@@ -21,30 +20,34 @@ STATE = "state"
 RESET = "reset"
 MESSAGE = "message"
 OPENLID = "openlid"
+SPEEDUP = "speedup"
 CLOSELID = "closelid"
 POSITION = "position"
+SPEEDDOWN = "speeddown"
 CLEARMEMORY = "clearmemory"
+
+_logging_enabled = False
 
 
 def log(msg: str):
-    print(msg)
-    sys.stdout.flush()
+    if _logging_enabled:
+        stderr.write(f"{msg}\n")
 
 
 async def _read_command(connection_name: str, reader: StreamReader) -> str:
     cmd = await reader.readuntil(b"\r")
-    log(f"{connection_name}> {cmd}")
+    log(f"{connection_name}> {cmd!r}")
 
     # chop off trailing \r and make a string
     return cmd[:-1].decode()
 
 
 async def _write_reply(connection_name: str, writer: StreamWriter, reply: str):
-    reply = (reply + "\r").encode()
-    writer.write(reply)
+    data = (reply + "\r").encode()
+    writer.write(data)
     await writer.drain()
 
-    log(f"{connection_name}< {reply}")
+    log(f"{connection_name}< {data!r}")
 
 
 def _encode_list(lst):
@@ -72,9 +75,47 @@ class _Positions(Enum):
     SOAK = "SOAK"
 
 
+class _Speed:
+    # TODO: check with the real robot for supported speed ratios
+    RATIOS = ["0.01", "1.0", "10.0", "50.0", "75.0", "100.0"]
+
+    def __init__(self):
+        self._current_ration_idx = self._max_idx()
+
+    def _max_idx(self):
+        return len(self.RATIOS) - 1
+
+    @property
+    def ratio(self) -> str:
+        return self.RATIOS[self._current_ration_idx]
+
+    @property
+    def decimal_ratio(self) -> float:
+        """
+        current speed ratio as decimal percentage number,
+        that is a value between 0.0 and 1.0
+        """
+        return float(self.ratio) / 100.0
+
+    def increase(self):
+        if self._current_ration_idx == self._max_idx():
+            # already at highest possible ratio
+            return
+
+        self._current_ration_idx += 1
+
+    def decrease(self):
+        if self._current_ration_idx == 0:
+            # already at lowest possible speed ratio
+            return
+
+        self._current_ration_idx -= 1
+
+
 class _RobotArm:
     def __init__(self):
         self._position = _Positions.HOME
+        self.speed = _Speed()
 
     def move_to(self, new_position: _Positions):
         assert self._position is not None
@@ -85,8 +126,10 @@ class _RobotArm:
         log(f"moving to {new_position.value}")
         self._position = None
 
-        # emulate that it take some time to reach destination position
-        await asyncio.sleep(4)
+        # emulate that it take some time to reach destination position,
+        # scale travel time according to current speed ratio
+        travel_time = 0.5 / self.speed.decimal_ratio
+        await asyncio.sleep(travel_time)
 
         # we have arrived at our new position
         self._position = new_position
@@ -104,18 +147,21 @@ class _RobotArm:
 
         return self._position.value
 
+    def change_speed(self, increase_speed: bool):
+        if increase_speed:
+            self.speed.increase()
+        else:
+            self.speed.decrease()
+
 
 class _DewarLid:
     OPEN_POS = 10
     CLOSED_POS = 0
 
-    def __init__(self, overlord: Overlord):
-        self._overlord = overlord
+    def __init__(self):
         self._position = self.OPEN_POS
         self._target_position = None
         self._target_position_set = Event()
-
-        self._update_overlord_attributes()
 
     def start(self):
         asyncio.create_task(self._run())
@@ -123,21 +169,15 @@ class _DewarLid:
     def is_moving(self) -> bool:
         return self._target_position is not None
 
-    def _update_overlord_attributes(self):
-        self._overlord.set_attr("dewarlid.position", self._position)
-        self._overlord.set_attr("dewarlid.moving", self.is_moving())
-
     async def _run(self):
         async def move_lid():
             while self._position != self._target_position:
                 step = 1 if self._position < self._target_position else -1
                 self._position += step
-                self._update_overlord_attributes()
                 await asyncio.sleep(0.6)
 
             self._target_position = None
             self._target_position_set.clear()
-            self._update_overlord_attributes()
 
         while True:
             await self._target_position_set.wait()
@@ -152,35 +192,55 @@ class _DewarLid:
         self._target_position_set.set()
 
 
-class _IsaraMixin:
+class _IsaraMixin(WatchableAttrsMixin):
     """
     contains code shared by ISARA and ISARA2 emulation
     """
 
-    def __init__(self):
-        self._overlord = Overlord()
+    def __init__(self, operate_port: int, monitor_port: int):
+        super().__init__()
+
+        # TCP ports to use
+        self._operate_port = operate_port
+        self._monitor_port = monitor_port
+
         self._message = "System OK for operation"
         #
         # emulates the robot PLC modes, i.e. the key switch modes
         #
         # we only emulate:
-        #   'remote mode' (_remote_mode = True)
-        #   'manual mode' (_remote_mode = False)
+        #   'remote mode' (remote_mode = True)
+        #   'manual mode' (remote_mode = False)
         #
-        self._remote_mode = True
-        self._door_closed = True
-        self._power_on = True
+        self.remote_mode = True
+        self.door_closed = True
+        self.power_on = True
 
         # puck present in the dewar
-        self._dewar_pucks = [False] * PUCKS_NUM
+        self.dewar_pucks = [False] * PUCKS_NUM
         # start with a couple of pucks present, for convenience
-        self._dewar_pucks[0] = True
-        self._dewar_pucks[PUCKS_NUM - 1] = True
+        self.dewar_pucks[0] = True
+        self.dewar_pucks[PUCKS_NUM - 1] = True
 
         self._robot_arm = _RobotArm()
-        self._dewar_lid = _DewarLid(self._overlord)
+        self._dewar_lid = _DewarLid()
 
-        self._update_overlord_attributes()
+    #
+    # public API for changing the state of the ISARA
+    #
+
+    def set_remote_mode(self):
+        self.remote_mode = True
+
+    def set_manual_mode(self):
+        self.remote_mode = False
+
+    def set_door_closed(self, is_closed: bool):
+        self.door_closed = is_closed
+
+    #
+    # ISARA and ISARA2 common emulation code
+    #
 
     def _handle_state_command(self):
         # needs model specific implementation
@@ -195,18 +255,20 @@ class _IsaraMixin:
         raise NotImplementedError()
 
     def _check_plc(self) -> Optional[str]:
-        if not self._remote_mode:
+        if not self.remote_mode:
             return "Remote mode requested"
 
-        if not self._door_closed:
+        if not self.door_closed:
             return "Doors must be closed"
+
+        return None
 
     def _handle_on_command(self) -> str:
         plc_err = self._check_plc()
         if plc_err is not None:
             return plc_err
 
-        self._power_on = True
+        self.power_on = True
         return "on"
 
     def _handle_off_command(self) -> str:
@@ -214,11 +276,20 @@ class _IsaraMixin:
         if plc_err is not None:
             return plc_err
 
-        self._power_on = False
+        self.power_on = False
         return "off"
 
     def _handle_message_command(self) -> str:
         return "System OK for operation"
+
+    def _handle_speed_command(self, command: str):
+        plc_err = self._check_plc()
+        if plc_err is not None:
+            return plc_err
+
+        self._robot_arm.change_speed(command == SPEEDUP)
+
+        return command
 
     def _handle_operate_command(self, command: str) -> str:
         if command == ON:
@@ -227,6 +298,8 @@ class _IsaraMixin:
             return self._handle_off_command()
         if command == ABORT:
             return "abort"
+        if command in [SPEEDUP, SPEEDDOWN]:
+            return self._handle_speed_command(command)
 
         assert False, f"unexpected command {command} on operate connection"
 
@@ -250,7 +323,10 @@ class _IsaraMixin:
                 reply = self._handle_operate_command(cmd)
 
                 await _write_reply("operate", writer, reply)
-        except:
+        except IncompleteReadError:
+            # connection closed, we are done here
+            return
+        except:  # noqa
             print(traceback.format_exc())
 
     async def _new_monitor_connection(self, reader: StreamReader, writer: StreamWriter):
@@ -261,68 +337,27 @@ class _IsaraMixin:
                 reply = self._handle_monitor_command(cmd)
 
                 await _write_reply("monitor", writer, reply)
-        except:
+        except IncompleteReadError:
+            # connection closed, we are done here
+            return
+        except:  # noqa
+            # unexpected exception
             print(traceback.format_exc())
 
-    def _update_overlord_attributes(self):
-        self._overlord.set_attr("dewar.pucks", self._dewar_pucks)
-        self._overlord.set_attr("plc.remote_mode", self._remote_mode)
-        self._overlord.set_attr("plc.door_closed", self._door_closed)
-
-    def _handle_overlord_puck_command(self, puck_number: str, is_present: str):
-        puck_number = int(puck_number)
-        is_present = is_present == "true"
-        if puck_number < 0 or puck_number > PUCKS_NUM:
-            log(f"invalid puck number {puck_number}, ignoring")
-            return
-
-        self._dewar_pucks[puck_number] = is_present
-        self._update_overlord_attributes()
-
-    def _handle_overlord_remote_command(self, remote_enabled):
-        remote_enabled = remote_enabled == "true"
-        if self._remote_mode == remote_enabled:
-            # same mode, ignore
-            return
-
-        self._remote_mode = remote_enabled
-        # when flipping mode, robot is powered off
-        self._power_on = False
-
-        self._update_overlord_attributes()
-
-    def _handle_overlord_door_closed_command(self, door_closed):
-        self._door_closed = door_closed == "true"
-        self._update_overlord_attributes()
-
-    async def _process_overlord_commands(self):
-        while True:
-            command = await self._overlord.get_command()
-            if command.name == "puck":
-                self._handle_overlord_puck_command(*command.args)
-            elif command.name == "remote":
-                self._handle_overlord_remote_command(*command.args)
-            elif command.name == "door_closed":
-                self._handle_overlord_door_closed_command(*command.args)
-            else:
-                log(f"unexpected overlord command {command}, ignoring")
-
-    async def start(self, overlord_port: int, operate_port: int, monitor_port: int):
+    async def start(self):
         self._dewar_lid.start()
-        asyncio.create_task(self._process_overlord_commands())
 
         op_srv = await asyncio.start_server(
-            self._new_operate_connection, host="0.0.0.0", port=operate_port
+            self._new_operate_connection, host="0.0.0.0", port=self._operate_port
         )
 
         mon_srv = await asyncio.start_server(
-            self._new_monitor_connection, host="0.0.0.0", port=monitor_port
+            self._new_monitor_connection, host="0.0.0.0", port=self._monitor_port
         )
 
         await asyncio.gather(
             op_srv.serve_forever(),
             mon_srv.serve_forever(),
-            self._overlord.start(overlord_port),
         )
 
 
@@ -332,7 +367,11 @@ class Isara(_IsaraMixin):
     """
 
     def _handle_state_command(self) -> str:
-        return f"state({_encode(self._power_on)},1,0,,,,,-1,-1,,,,0,0,,75.0,1.16,1.17,1.18,,,,)"
+        power_on = _encode(self.power_on)
+        remote_mode = _encode(self.remote_mode)
+        speed_ratio = self._robot_arm.speed.ratio
+
+        return f"state({power_on},{remote_mode},0,,,,,-1,-1,,,,0,0,,{speed_ratio},1.16,1.17,1.18,,,,)"
 
     def _handle_di_command(self) -> str:
         return "di(" + "0" * 99 + ")"
@@ -357,13 +396,15 @@ class Isara2(_IsaraMixin):
     """
 
     def _handle_state_command(self) -> str:
-        power_on = _encode(self._power_on)
+        power_on = _encode(self.power_on)
+        remote_mode = _encode(self.remote_mode)
         position = self._robot_arm.get_position_name()
         path_running = _encode(self._robot_arm.is_moving())
+        speed_ratio = self._robot_arm.speed.ratio
 
         return (
-            f"state({power_on},1,1,DoubleGripper,{position},,1,1,-1,-1,-1,-1,-1,"
-            f"-1,-1,-1,,{path_running},0,75.0,0,0,0.3865678,75.0,72.0,1,0,0,"
+            f"state({power_on},{remote_mode},1,DoubleGripper,{position},,1,1,-1,-1,-1,-1,-1,"
+            f"-1,-1,-1,,{path_running},0,{speed_ratio},0,0,0.3865678,75.0,72.0,1,0,0,"
             f"{self._message},67108864,152.9,-390.8,"
             "-17.3,-180.0,0.0,89.1,-75.6,-18.8,93.6,0.0,105.3,-165.5,,1,,1,0,0,0,0,"
             "0,0,0,0,0,0,0,0,0,changetool|3|3|0|-2.441|0.068|392.37|0.0|0.0|-0.984)"
@@ -377,11 +418,11 @@ class Isara2(_IsaraMixin):
         )
 
     def _handle_do_command(self) -> str:
-        puck_presence = _encode(self._dewar_pucks)
+        puck_presence = _encode(self.dewar_pucks)
 
         return (
             "do("
-            "0,0,1,0,0,1,0,1,0,0,"  #  0 -  9
+            "0,0,1,0,0,1,0,1,0,0,"  # 00 - 09
             "1,0,0,0,0,0,0,0,0,0,"  # 10 - 19
             "0,0,0,1,0,0,0,0,0,0,"  # 20 - 29
             "0,0,0,0,0,0,0,0,0,0,"  # 30 - 39
@@ -399,7 +440,7 @@ class Isara2(_IsaraMixin):
         return "put"
 
     def _handle_traj_command(self, name, *_) -> str:
-        if not self._power_on:
+        if not self.power_on:
             return "Robot power disabled"
 
         if self._robot_arm.is_moving():
@@ -466,59 +507,13 @@ class Isara2(_IsaraMixin):
         return super()._handle_operate_command(command)
 
 
-async def _listen(model: str, overlord_port: int, operate_port: int, monitor_port: int):
-    def init_model():
-        classes = {"ISARA": Isara, "ISARA2": Isara2}
-        klass = classes[model]
+def create_emulator(
+    model: str, operate_port: int, monitor_port: int, enable_logging=False
+):
+    global _logging_enabled
+    _logging_enabled = enable_logging
 
-        return klass()
+    classes = {"ISARA": Isara, "ISARA2": Isara2}
+    klass = classes[model]
 
-    isara = init_model()
-
-    log(
-        f"emulating {model} API\n"
-        f" overlord port: {overlord_port}\n"
-        f" operate port: {operate_port}\n"
-        f" monitor port: {monitor_port}"
-    )
-
-    await isara.start(overlord_port, operate_port, monitor_port)
-
-
-def _parse_args():
-    parser = ArgumentParser(description="Emulate ISARA Sample Changer API")
-
-    parser.add_argument(
-        "-o",
-        "--operate-port",
-        default=10000,
-    )
-
-    parser.add_argument(
-        "-m",
-        "--monitor-port",
-        default=1000,
-    )
-
-    parser.add_argument(
-        "--overlord-port",
-        default=1111,
-    )
-
-    parser.add_argument(
-        "--model",
-        choices=["ISARA", "ISARA2"],
-        default="ISARA2",
-    )
-
-    return parser.parse_args()
-
-
-def _main():
-    args = _parse_args()
-    asyncio.run(
-        _listen(args.model, args.overlord_port, args.operate_port, args.monitor_port)
-    )
-
-
-_main()
+    return klass(operate_port, monitor_port)

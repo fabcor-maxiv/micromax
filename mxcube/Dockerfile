@@ -1,14 +1,16 @@
-FROM mambaorg/micromamba:1.5.1
+FROM mambaorg/micromamba:1.5.6
 
 USER root
 RUN apt-get update
 RUN apt-get -y install \
     # need for lucid3
     libgl1-mesa-glx \
+    # for troubleshooting
     iputils-ping git nano
 
-COPY condarc /opt/conda/.condarc
+COPY activedirectory.yml /etc/sdm/
 
+COPY condarc /opt/conda/.condarc
 RUN micromamba install --name base --channel conda-forge \
     python=3.9.16 \
     pytango=9.4.1 \
@@ -21,7 +23,7 @@ RUN micromamba install --name base --channel conda-forge \
     nodejs=18.15.0 \
     pnpm=8.6.5 \
     # MAXIV specific packages for MXCube
-    sdm=1.8.8 \
+    sdm=1.8.10 \
     sardana=3.4.0
 
 #

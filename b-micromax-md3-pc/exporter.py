@@ -222,6 +222,12 @@ class MD3Up:
             "getTaskInfo": ("String[]", "int", self._do_get_task_info),
             # void saveCentringPositions()
             "saveCentringPositions": ("void", "", self._do_save_centring_positions),
+            # double[] getMotorDynamicLimits(String)
+            "getMotorDynamicLimits": (
+                "double[]",
+                "String",
+                self._do_get_motor_dynamic_limits,
+            ),
         }
 
     def _add_task(self, name: str, running_time: float):
@@ -299,6 +305,10 @@ class MD3Up:
     def _do_save_centring_positions(self):
         # this is NOP for now
         pass
+
+    def _do_get_motor_dynamic_limits(self, _motor_name: str):
+        # return some plausible dummy values for now
+        return [-2.97366048458438, 2.970646846947152]
 
     def get_motor_name(self, attribute_name: str) -> Optional[str]:
         """

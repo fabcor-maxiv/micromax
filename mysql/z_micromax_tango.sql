@@ -21,7 +21,10 @@ VALUES ('Micromax/Door/01','Door_Micromax','Micromax','Door','01',0,'nada','nada
        ('b312a/vac/plc-01',NULL,'b312a','vac','plc-01',0,'nada','nada','VacPlc01/0',0,'VacPlc01','0',NULL,NULL,NULL),
        ('dserver/VacPlc01/0',NULL,'dserver','VacPlc01','0',0,'nada','nada','VacPlc01/0',0,'DServer','0',NULL,NULL,NULL),
        ('b312a-eh/dia/det-02',NULL,'b312a-eh','dia','det-02',0,'nada','nada','Jungfrau/Micromax',0,'Jungfrau','0',NULL,NULL,NULL),
-       ('dserver/Jungfrau/Micromax',NULL,'dserver','Jungfrau','Micromax',0,'nada','nada','Jungfrau/Micromax',0,'DServer','0',NULL,NULL,NULL);
+       ('dserver/Jungfrau/Micromax',NULL,'dserver','Jungfrau','Micromax',0,'nada','nada','Jungfrau/Micromax',0,'DServer','0',NULL,NULL,NULL),
+       ('b312a/ctl/sdm-01',NULL,'b312a','ctl','sdm-01',0,'nada','nada','PathFixer/B312A',0,'PathFixer','0',NULL,NULL,NULL),
+       ('dserver/PathFixer/B312A',NULL,'dserver','PathFixer','B312A',0,'nada','nada','PathFixer/B312A',0,'DServer','0',NULL,NULL,NULL);
+
 
 
 
@@ -66,5 +69,6 @@ VALUES ('MacroServer/micromax/1','PoolNames','','','',1,'Pool_micromax_1','2023-
        ('b312-e/ctl/sm-01','host','','','',1,'b-micromax-isara-0','2023-08-04 15:13:18','2023-08-04 15:13:18',NULL),
        ('motor/faux_ctrl/3','id','','','',1,'6','2024-01-23 09:02:13','2024-01-23 09:02:13',NULL),
        ('motor/faux_ctrl/3','ctrl_id','','','',1,'3','2024-01-23 09:02:13','2024-01-23 09:02:13',NULL),
-       ('motor/faux_ctrl/3','axis','','','',1,'3','2024-01-23 09:02:13','2024-01-23 09:02:13',NULL);
+       ('motor/faux_ctrl/3','axis','','','',1,'3','2024-01-23 09:02:13','2024-01-23 09:02:13',NULL),
+       ('b312a/ctl/sdm-01','Beamline','','','',1,'MicroMAX','2024-03-22 15:22:49','2024-03-22 15:22:49',NULL);
 

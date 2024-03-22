@@ -10,9 +10,12 @@ RUN apt-get -y install \
 
 COPY activedirectory.yml /etc/sdm/
 
+# install kafka certificates for SciCat
+COPY ca.crt user.crt user.key /etc/ssl/certs/kafka/
+
 COPY condarc /opt/conda/.condarc
 RUN micromamba install --name base --channel conda-forge \
-    python=3.9.16 \
+    python=3.10.13 \
     pytango=9.4.1 \
     itango=0.1.9 \
     redis-server=7.0.11 \
@@ -24,7 +27,8 @@ RUN micromamba install --name base --channel conda-forge \
     pnpm=8.6.5 \
     # MAXIV specific packages for MXCube
     sdm=1.8.10 \
-    sardana=3.4.0
+    sardana=3.4.0 \
+    scifish=1.3.2
 
 #
 # clone mxcube repositories

@@ -35,7 +35,8 @@ VALUES ('motor/faux_ctrl/1','StartPosition','__value',1,'5277.64','2023-08-03 13
        ('motor/faux_ctrl/2','Position','max_value',1,'920','2023-11-02 08:43:49','2023-11-02 08:43:49',NULL),
        ('motor/faux_ctrl/3','Position','min_value',1,'250','2024-01-23 09:30:32','2024-01-23 09:30:32',NULL),
        ('motor/faux_ctrl/3','Position','max_value',1,'788','2024-01-23 09:30:36','2024-01-23 09:30:36',NULL),
-       ('b312a-eh/dia/det-02','summation','max_value',1,'256','2024-01-24 15:43:17','2024-01-24 15:43:17',NULL);
+       ('b312a-eh/dia/det-02','summation','max_value',1,'256','2024-01-24 15:43:17','2024-01-24 15:43:17',NULL),
+       ('motor/faux_ctrl/2','powerOn','__value',1,'false','2024-02-08 14:10:34','2024-02-08 14:10:34',NULL);
 
 
 

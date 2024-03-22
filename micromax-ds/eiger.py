@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 from typing import Optional, Union, Any
 from dataclasses import dataclass
-from tango import AttrWriteType
+from tango import AttrWriteType, DevLong
 from tango.server import Device, attribute, command
 
 
@@ -33,6 +33,7 @@ WRITEABLE_ATTRIBUTES = [
     _WriteableAttr("OmegaIncrement", float, 0.1),
     _WriteableAttr("RoiMode", str, "disabled"),
     _WriteableAttr("TriggerMode", str, "exts"),
+    _WriteableAttr("HeaderAppendix", str, "{}"),
 ]
 
 
@@ -83,6 +84,10 @@ class Eiger(Device):
     #
     # read-only attributes
     #
+
+    @attribute(name="CountrateCorrectionCountCutoff", dtype=DevLong)
+    def count_rate_correction_count_cutoff(self):
+        return 83270
 
     @attribute(name="Temperature", dtype=float)
     def temperature(self):
@@ -154,11 +159,11 @@ class Eiger(Device):
 
     @attribute(name="XPixelsDetector", dtype=int)
     def x_pixels_detector(self):
-        return 2**16
+        return 2 ** 16
 
     @attribute(name="YPixelsDetector", dtype=int)
     def y_pixels_detector(self):
-        return 2**16
+        return 2 ** 16
 
     @attribute(name="CollectionUUID", dtype=str)
     def collection_uuid(self):
@@ -167,10 +172,6 @@ class Eiger(Device):
     @attribute(name="HeaderDetail", dtype=str)
     def header_detail(self):
         return "HeaderDetail TBD"
-
-    @attribute(name="HeaderAppendix", dtype=str)
-    def header_appendix(self):
-        return "HeaderAppendix TBD"
 
     @attribute(name="ImageAppendix", dtype=str)
     def image_appendix(self):

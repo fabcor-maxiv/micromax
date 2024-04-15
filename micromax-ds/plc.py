@@ -1,39 +1,35 @@
 #!/usr/bin/env python
-
+from tango import AttrWriteType
 from tango.server import Device, attribute
+
+ATTRIBUTES = [
+    # Eiger detector cover tags
+    "B312A_E06_DIA_DETC01_ENAC",
+    "B312A_E06_DIA_DETC01_OPC",
+    "B312A_E06_DIA_DETC01_CLC",
+    # Jungfrau detector cover tags
+    "B312A_E06_DIA_DETC02_ENAC",
+    "B312A_E06_DIA_DETC02_OPC",
+    "B312A_E06_DIA_DETC02_CLC",
+]
 
 
 class VacPlc01(Device):
     """
-    emulate (small sumbset) of b312a/vac/plc-01 device
+    emulate (small subset) of b312a/vac/plc-01 device
     """
 
-    #
-    # write only emulation of B312A_E06_DIA_DETC01_ENAC attribute
-    #
-    _attr0 = attribute(name="B312A_E06_DIA_DETC01_ENAC", dtype=bool)
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
 
-    @_attr0.setter
-    def _attr0_write(self, value):
-        pass
+        self._init_attrs()
 
-    #
-    # write only emulation of B312A_E06_DIA_DETC01_OPC attribute
-    #
-    _attr1 = attribute(name="B312A_E06_DIA_DETC01_OPC", dtype=bool)
-
-    @_attr1.setter
-    def _attr1_write(self, value):
-        pass
-
-    #
-    # write only emulation of B312A_E06_DIA_DETC01_CLC attribute
-    #
-    _attr2 = attribute(name="B312A_E06_DIA_DETC01_CLC", dtype=bool)
-
-    @_attr2.setter
-    def _attr2_write(self, value):
-        pass
+    def _init_attrs(self):
+        for attr_name in ATTRIBUTES:
+            attr = attribute(
+                name=attr_name, dtype=bool, access=AttrWriteType.READ_WRITE
+            )
+            self.add_attribute(attr, lambda _, __: False, lambda _, __: None)
 
 
 if __name__ == "__main__":

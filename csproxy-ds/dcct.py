@@ -1,8 +1,21 @@
 #!/usr/bin/env python3
 import time
+from itertools import cycle
 from PyTango import ConnectionFailed
 from tango import Database, DbDevInfo
 from tango.server import Device, attribute
+
+CURRENTS = [
+    0.39518965682844615,
+    0.395918248053309,
+    0.39664013397652653,
+    0.39762002574983546,
+    0.3981098345249726,
+    0.39859072410449725,
+    0.39908062355605123,
+    0.39979803818127974,
+    0.3998840604847532,
+]
 
 
 TANGO_CONNECT_RETRY_TIME = 2.1
@@ -37,10 +50,11 @@ def register_device():
 class Dcct(Device):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self._currents = cycle(CURRENTS)
 
     @attribute(name="Current", dtype=float)
     def current(self):
-        return 8.293e-06
+        return next(self._currents)
 
     @attribute(name="Lifetime", dtype=float)
     def lifetime(self):

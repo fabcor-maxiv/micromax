@@ -57,6 +57,11 @@ Runs MD3Up diffractometer exporter emulator.
 
 Runs ISARA socket API emulator.
 
+### `pandabox`
+
+Runs the PandABox API emulator.
+This is the PandABox used by trigger generator tango device.
+
 ### `dbg`
 
 Can be used for debugging and troubleshooting.

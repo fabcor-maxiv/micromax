@@ -72,6 +72,11 @@ services:
     image: b-micromax-isara-0
     build:
       context: b-micromax-isara-0
+  pandabox:
+    container_name: pandabox
+    image: pandabox
+    build:
+      context: pandabox
   dbg:
     container_name: dbg
     image: dbg

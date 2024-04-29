@@ -23,9 +23,9 @@ VALUES ('Micromax/Door/01','Door_Micromax','Micromax','Door','01',0,'nada','nada
        ('b312a-eh/dia/det-02',NULL,'b312a-eh','dia','det-02',0,'nada','nada','Jungfrau/Micromax',0,'Jungfrau','0',NULL,NULL,NULL),
        ('dserver/Jungfrau/Micromax',NULL,'dserver','Jungfrau','Micromax',0,'nada','nada','Jungfrau/Micromax',0,'DServer','0',NULL,NULL,NULL),
        ('b312a/ctl/sdm-01',NULL,'b312a','ctl','sdm-01',0,'nada','nada','PathFixer/B312A',0,'PathFixer','0',NULL,NULL,NULL),
-       ('dserver/PathFixer/B312A',NULL,'dserver','PathFixer','B312A',0,'nada','nada','PathFixer/B312A',0,'DServer','0',NULL,NULL,NULL);
-
-
+       ('dserver/PathFixer/B312A',NULL,'dserver','PathFixer','B312A',0,'nada','nada','PathFixer/B312A',0,'DServer','0',NULL,NULL,NULL),
+       ('B312A-A101232-CAB01/CTL/PANDA-01',NULL,'B312A-A101232-CAB01','CTL','PANDA-01',1,'IOR:010000001700000049444c3a54616e676f2f4465766963655f353a312e3000000100000000000000ac000000010102000c0000003137322e31382e302e3132007bd400000e000000feea863466000000b9000000000000000300000000000000080000000100000000545441010000001c000000010000000100010001000000010001050901010001000000090101000254544140000000010000000d00000030313238366363616534633200000000240000002f746d702f6f6d6e692d726f6f742f3030303030303138352d3137313437313834343200','01286ccae4c2','MicroMAXPanda/B312A',185,'MicroMAXPanda','5','2024-05-03 06:40:42',NULL,NULL),
+       ('dserver/MicroMAXPanda/B312A',NULL,'dserver','MicroMAXPanda','B312A',1,'IOR:010000001700000049444c3a54616e676f2f4465766963655f353a312e3000000100000000000000ac000000010102000c0000003137322e31382e302e3132007bd400000e000000feea863466000000b9000000000100000300000000000000080000000100000000545441010000001c000000010000000100010001000000010001050901010001000000090101000254544140000000010000000d00000030313238366363616534633200000000240000002f746d702f6f6d6e692d726f6f742f3030303030303138352d3137313437313834343200','01286ccae4c2','MicroMAXPanda/B312A',185,'DServer','5','2024-05-03 06:40:42',NULL,NULL);
 
 
 INSERT INTO `property_attribute_device`
@@ -40,7 +40,6 @@ VALUES ('motor/faux_ctrl/1','StartPosition','__value',1,'5277.64','2023-08-03 13
        ('motor/faux_ctrl/3','Position','max_value',1,'788','2024-01-23 09:30:36','2024-01-23 09:30:36',NULL),
        ('b312a-eh/dia/det-02','summation','max_value',1,'256','2024-01-24 15:43:17','2024-01-24 15:43:17',NULL),
        ('motor/faux_ctrl/2','powerOn','__value',1,'false','2024-02-08 14:10:34','2024-02-08 14:10:34',NULL);
-
 
 
 INSERT INTO `property_device`
@@ -70,5 +69,5 @@ VALUES ('MacroServer/micromax/1','PoolNames','','','',1,'Pool_micromax_1','2023-
        ('motor/faux_ctrl/3','id','','','',1,'6','2024-01-23 09:02:13','2024-01-23 09:02:13',NULL),
        ('motor/faux_ctrl/3','ctrl_id','','','',1,'3','2024-01-23 09:02:13','2024-01-23 09:02:13',NULL),
        ('motor/faux_ctrl/3','axis','','','',1,'3','2024-01-23 09:02:13','2024-01-23 09:02:13',NULL),
-       ('b312a/ctl/sdm-01','Beamline','','','',1,'MicroMAX','2024-03-22 15:22:49','2024-03-22 15:22:49',NULL);
-
+       ('b312a/ctl/sdm-01','Beamline','','','',1,'MicroMAX','2024-03-22 15:22:49','2024-03-22 15:22:49',NULL),
+       ('B312A-A101232-CAB01/CTL/PANDA-01','host','','','',1,'pandabox','2024-05-03 06:40:39','2024-05-03 06:40:39',NULL);

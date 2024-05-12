@@ -23,13 +23,13 @@ RUN micromamba install --name base --channel conda-forge \
     redis-server=7.0.11 \
     circus=0.18.0 \
     # install as conda package, so pip does not try to compile it
-    python-ldap=3.4.0 \
+    python-ldap=3.4.3 \
     # for building front-end \
-    nodejs=18.15.0 \
-    pnpm=8.6.5 \
+    nodejs=20.12.2 \
+    pnpm=9.1.0 \
     # MAXIV specific packages for MXCube
     sdm=1.8.10 \
-    sardana=3.4.0 \
+    sardana=3.4.4 \
     scifish=1.3.2
 
 #

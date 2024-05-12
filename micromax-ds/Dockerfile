@@ -12,6 +12,7 @@ RUN micromamba install --name base --channel conda-forge \
 
 RUN micromamba install --name base --channel maxiv-kits \
     sardana=3.4.3post0+maxiv \
+    tangods-mxdetectorcovers=1.0.0 \
     tangods-isara2=1.2.1 \
     tangods-micromax-panda=1.3.0
 

@@ -228,6 +228,8 @@ class MD3Up:
                 "String",
                 self._do_get_motor_dynamic_limits,
             ),
+            # void abort()
+            "abort": ("void", "", self._do_abort),
         }
 
     def _add_task(self, name: str, running_time: float):
@@ -303,6 +305,10 @@ class MD3Up:
         ]
 
     def _do_save_centring_positions(self):
+        # this is NOP for now
+        pass
+
+    def _do_abort(self):
         # this is NOP for now
         pass
 

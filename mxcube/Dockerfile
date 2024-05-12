@@ -5,8 +5,10 @@ RUN apt-get update
 RUN apt-get -y install \
     # need for lucid3
     libgl1-mesa-glx \
+    # to do the needful
+    git \
     # for troubleshooting
-    iputils-ping git nano
+    iputils-ping nano
 
 COPY activedirectory.yml /etc/sdm/
 
@@ -74,8 +76,12 @@ RUN /bin/micromamba run -p /opt/conda pnpm run build
 RUN mkdir /opt/mxcube
 RUN mv /app/web/ui/build /opt/mxcube
 
-# install convenience script for running mxcube from terminal
-COPY run.sh /app/
+#
+# install convenience scripts for running MXCuBE from terminal
+# run.sh   - runs the python backend (mxcubeweb-server)
+# start.sh - starts the front-end in developer mode
+#
+COPY run.sh start.sh /app/
 
 # install our circus 'plug-in'
 RUN mkdir /opt/circus

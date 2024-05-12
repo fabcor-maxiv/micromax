@@ -221,6 +221,10 @@ class Eiger(Device):
     def DisableStream(self):
         pass
 
+    @command
+    def Abort(self):
+        pass
+
 
 if __name__ == "__main__":
     Eiger.run_server()

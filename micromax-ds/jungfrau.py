@@ -38,6 +38,12 @@ WRITEABLE_ATTRIBUTES = [
     _WriteableAttr("omega__vector__#1", float, 0.0),
     _WriteableAttr("omega__vector__#2", float, 0.0),
     _WriteableAttr("omega__vector__#3", float, 0.0),
+    _WriteableAttr("unit_cell__a", float, 0.0),
+    _WriteableAttr("unit_cell__b", float, 0.0),
+    _WriteableAttr("unit_cell__c", float, 0.0),
+    _WriteableAttr("unit_cell__alpha", float, 0.0),
+    _WriteableAttr("unit_cell__beta", float, 0.0),
+    _WriteableAttr("unit_cell__gamma", float, 0.0),
 ]
 
 

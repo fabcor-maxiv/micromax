@@ -1,12 +1,10 @@
 services:
   mysql:
-    container_name: mysql
     environment:
      - MYSQL_ROOT_PASSWORD=root
     build:
       context: mysql
   tango-cs:
-    container_name: tango-cs
     image: registry.gitlab.com/tango-controls/docker/tango-cs:9.3.5
     ports:
      - "10000:10000"
@@ -19,7 +17,6 @@ services:
     depends_on:
      - mysql
   micromax-ds:
-    container_name: micromax-ds
     environment:
      - TANGO_HOST=tango-cs:10000
     build:
@@ -27,12 +24,10 @@ services:
     depends_on:
      - tango-cs
   mysql-2:
-    container_name: mysql-2
     image: registry.gitlab.com/tango-controls/docker/mysql:5
     environment:
      - MYSQL_ROOT_PASSWORD=root
   g-v-csproxy-0:
-    container_name: g-v-csproxy-0
     image: registry.gitlab.com/tango-controls/docker/tango-cs:9.3.5
     environment:
      - TANGO_HOST=localhost:10000
@@ -44,13 +39,11 @@ services:
      - mysql-2
   # runs 'g-v-csproxy-0' tango device servers
   csproxy-ds:
-    container_name: csproxy-ds
     environment:
      - TANGO_HOST=g-v-csproxy-0:10000
     build:
       context: csproxy-ds
   mxcube:
-    container_name: mxcube
     ports:
      - "8081:8081"
     environment:
@@ -58,19 +51,15 @@ services:
     build:
       context: mxcube
   b-micromax-md3-pc:
-    container_name: b-micromax-md3-pc
     build:
       context: b-micromax-md3-pc
   b-micromax-isara-0:
-    container_name: b-micromax-isara-0
     build:
       context: b-micromax-isara-0
   pandabox:
-    container_name: pandabox
     build:
       context: pandabox
   dbg:
-    container_name: dbg
     environment:
      - TANGO_HOST=tango-cs:10000
     build:

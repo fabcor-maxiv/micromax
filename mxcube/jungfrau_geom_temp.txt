@@ -1,0 +1,33 @@
+; PSI JF9M 
+
+; Camera length (in m) and photon energy (eV) 
+clen = ${det_dist}
+photon_energy = ${energy_ev}
+flag_lessthan = -30000
+
+
+adu_per_eV = 0.0000794
+res = 13333.3   ; 75 micron pixel size
+
+; used by geoptimiser
+rigid_group_0 = 0 
+rigid_group_collection_0 = 0 
+
+; These lines describe the data layout for the JF native multi-event files 
+dim0 = % 
+dim1 = ss 
+dim2 = fs 
+data = /entry/data/data 
+
+
+; corner_{x,y} set the position of the corner of the detector (in pixels) 
+; relative to the beam 
+
+0/min_fs = 0 
+0/min_ss = 0 
+0/max_fs =3105
+0/max_ss =3263
+0/corner_x = -${beam_cent_x}
+0/corner_y = -${beam_cent_y}
+0/fs = x 
+0/ss = y

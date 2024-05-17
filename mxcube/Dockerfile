@@ -77,6 +77,12 @@ RUN mkdir /opt/mxcube
 RUN mv /app/web/ui/build /opt/mxcube
 
 #
+# install crystfel template files
+#
+RUN mkdir -p /mxn/groups/sw/mxsw/mxcube_scripts/template/
+COPY jungfrau_geom_temp.txt crystfel_index_temp.txt /mxn/groups/sw/mxsw/mxcube_scripts/template/
+
+#
 # install convenience scripts for running MXCuBE from terminal
 # run.sh   - runs the python backend (mxcubeweb-server)
 # start.sh - starts the front-end in developer mode

@@ -26,7 +26,7 @@ RUN micromamba install --name base --channel conda-forge \
     python-ldap=3.4.3 \
     # for building front-end \
     nodejs=20.12.2 \
-    pnpm=9.1.0 \
+    pnpm=9.1.1 \
     # MAXIV specific packages for MXCube
     sdm=1.8.10 \
     sardana=3.4.4 \

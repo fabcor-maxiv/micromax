@@ -1,7 +1,6 @@
 services:
   mysql:
     container_name: mysql
-    image: mysql
     environment:
      - MYSQL_ROOT_PASSWORD=root
     build:
@@ -21,7 +20,6 @@ services:
      - mysql
   micromax-ds:
     container_name: micromax-ds
-    image: micromax-ds
     environment:
      - TANGO_HOST=tango-cs:10000
     build:
@@ -47,14 +45,12 @@ services:
   # runs 'g-v-csproxy-0' tango device servers
   csproxy-ds:
     container_name: csproxy-ds
-    image: csproxy-ds
     environment:
      - TANGO_HOST=g-v-csproxy-0:10000
     build:
       context: csproxy-ds
   mxcube:
     container_name: mxcube
-    image: mxcube
     ports:
      - "8081:8081"
     environment:
@@ -63,22 +59,18 @@ services:
       context: mxcube
   b-micromax-md3-pc:
     container_name: b-micromax-md3-pc
-    image: b-micromax-md3-pc
     build:
       context: b-micromax-md3-pc
   b-micromax-isara-0:
     container_name: b-micromax-isara-0
-    image: b-micromax-isara-0
     build:
       context: b-micromax-isara-0
   pandabox:
     container_name: pandabox
-    image: pandabox
     build:
       context: pandabox
   dbg:
     container_name: dbg
-    image: dbg
     environment:
      - TANGO_HOST=tango-cs:10000
     build:
